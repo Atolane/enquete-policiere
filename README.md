@@ -3,10 +3,11 @@
 Petit jeu d'enquête policière 3D en vue FPS, jouable dans un navigateur.
 États-Unis, 1948. Ambiance film noir. Une seule affaire de meurtre.
 
-**État actuel : Phase 2A — socle FPS.**
+**État actuel : Phase 2B — collisions réelles.**
 Une pièce de test en primitives (graybox), une caméra à la première personne,
-le déplacement ZQSD/WASD et une gravité simple. Pas encore d'interactions,
-de personnages ni d'enquête.
+le déplacement ZQSD/WASD, la gravité et de vraies collisions : murs, escalier,
+rampe, passage étroit, obstacles. Pas encore d'interactions, de personnages
+ni d'enquête.
 
 ### Commandes en jeu
 
@@ -88,6 +89,7 @@ indépendante de l'affichage.
 | Paquet | Rôle |
 |---|---|
 | `three` | le moteur 3D |
+| `three-mesh-bvh` | accélère les tests de collision contre le décor |
 | `vite` | serveur de développement et outil de build |
 | `typescript` | vérification des types |
 | `@types/three` | descriptions des types de Three.js |
@@ -99,7 +101,8 @@ réellement besoin.
 
 - [x] **Phase 1** — socle technique : projet, arborescence, build, déploiement
 - [x] **Phase 2A** — socle FPS : pièce de test, caméra FPS, déplacement, gravité
-- [ ] **Phase 2B** — vraies collisions, viseur, interaction avec un objet
+- [x] **Phase 2B** — collisions réelles : capsule contre géométrie (three-mesh-bvh)
+- [ ] **Phase 2C** — viseur, objet observable, interaction
 - [ ] Phase 3 — chargement de modèles GLB
 - [ ] Phase 4 — premier personnage animé
 - [ ] Phase 5 — dialogues

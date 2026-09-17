@@ -8,7 +8,8 @@
 
    Ordre d'une image :
      entrees deja collectees par Input
-       -> le joueur se met a jour (regard, deplacement, gravite, camera)
+       -> le joueur se met a jour (regard, deplacement, gravite,
+          collisions, camera)
        -> l'interface se met a jour
        -> on dessine
    =================================================================== */
@@ -16,7 +17,9 @@
 import { Engine } from './core/Engine';
 import { Input } from './core/Input';
 import { Player } from './player/Player';
+import { Collider } from './player/Collider';
 import { TestRoomScene } from './world/scenes/TestRoomScene';
+import { buildCollisionGeometry, triangleCount } from './world/collision';
 import { Hud } from './ui/Hud';
 
 export class Game {
@@ -24,6 +27,7 @@ export class Game {
   private readonly input: Input;
   private readonly player: Player;
   private readonly room: TestRoomScene;
+  private readonly collider: Collider;
   private readonly hud: Hud;
 
   /** Compteur d'images par seconde, lisse pour rester lisible. */
@@ -36,10 +40,16 @@ export class Game {
     this.room = new TestRoomScene();
     this.player = new Player();
 
-    // Le joueur recupere ses reperes de la piece : il ne connait donc
-    // aucune valeur du decor en dur.
-    this.player.setFloorY(this.room.floorY);
-    this.player.setBounds(this.room.halfSize); // temporaire (Phase 2A)
+    // Collisions : on extrait du decor une geometrie simplifiee, puis on
+    // construit l'arbre de recherche une seule fois, au chargement.
+    const collisionGeometry = buildCollisionGeometry(this.room.scene);
+    this.collider = new Collider(collisionGeometry);
+    this.player.setCollider(this.collider);
+
+    console.info(
+      `[collisions] ${triangleCount(collisionGeometry)} triangles de collision`,
+    );
+
     this.player.spawn(this.room.spawn, this.room.spawnYaw);
 
     // L'interface reagit a la prise ou a la perte de la souris.
@@ -54,6 +64,7 @@ export class Game {
   stop(): void {
     this.engine.stop();
     this.input.dispose();
+    this.collider.dispose();
   }
 
   private update(deltaTime: number): void {
