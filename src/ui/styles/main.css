@@ -207,3 +207,64 @@ body {
   text-transform: uppercase;
   color: #6f6a60;
 }
+
+/* ===============================================================
+   PHASE 3 — ecran de chargement
+   =============================================================== */
+
+#loading-screen {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  background: #07090d;
+  transition: opacity 0.4s ease;
+}
+
+#loading-screen.is-hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.loading-title {
+  font-size: 15px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: #9b9486;
+}
+
+.loading-track {
+  width: min(320px, 60vw);
+  height: 2px;
+  background: rgba(216, 210, 196, 0.12);
+  overflow: hidden;
+}
+
+.loading-bar {
+  width: 0%;
+  height: 100%;
+  background: #f0c98a;
+  transition: width 0.25s ease;
+}
+
+.loading-label {
+  min-height: 16px;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: #5f5a52;
+}
+
+#loading-screen.is-error .loading-title {
+  color: #d98b6a;
+}
+
+.loading-error {
+  max-width: min(560px, calc(100vw - 48px));
+  text-align: center;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #ddd6c6;
+}

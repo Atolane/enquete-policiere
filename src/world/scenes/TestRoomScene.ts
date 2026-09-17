@@ -14,12 +14,17 @@
      - un passage etroit de 90 cm (largeur du joueur : 70 cm)
      - des caisses et un pilier (contour d'obstacles isoles)
 
+   PHASE 3 : la piece charge en plus un VRAI modele GLB (un appareil
+   photo sur trepied) pour valider le pipeline d'assets de bout en bout.
+
    Tout objet solide porte le marqueur userData.collision = true,
    lu par world/collision.ts.
    =================================================================== */
 
 import * as THREE from 'three';
 import type { Interactable } from '../../interaction/InteractionSystem';
+import type { ModelLibrary } from '../../core/Loaders';
+import { prepareModel, logModelReport } from '../model';
 
 /** Cote interieur de la piece, en metres (12 x 12 m). */
 const ROOM_SIZE = 12;
@@ -62,6 +67,17 @@ export class TestRoomScene {
     this.buildProps();
     this.buildCollisionTests();
     this.buildExaminables();
+  }
+
+  /**
+   * Charge les modeles 3D de la piece.
+   *
+   * Separe du constructeur parce qu'un telechargement prend du temps :
+   * le constructeur monte la partie immediate, load() attend le reste.
+   * C'est ce decoupage qui permet d'afficher un ecran de chargement.
+   */
+  async load(models: ModelLibrary): Promise<void> {
+    await this.loadCamera(models);
   }
 
   /**
@@ -299,6 +315,82 @@ export class TestRoomScene {
     handset.userData.interactable = phoneBase.userData.interactable;
     handset.castShadow = true;
   }
+
+  // -----------------------------------------------------------------
+  // Modele GLB reel (Phase 3)
+  // -----------------------------------------------------------------
+
+  private async loadCamera(models: ModelLibrary): Promise<void> {
+    const gltf = await models.load('models/props/antique_camera.glb');
+    const model = prepareModel(gltf.scene);
+
+    // Le rapport s'affiche dans la console : c'est notre garde-fou sur
+    // l'echelle, le nombre de triangles et la presence de collisions.
+    logModelReport('antique_camera.glb', model);
+
+    /* MISE A L'ECHELLE.
+       Ce modele fait 7,2 m de haut a l'import : il ne respecte pas notre
+       convention "1 unite = 1 metre". Un appareil sur trepied mesure
+       environ 1,55 m, d'ou ce facteur.
+
+       C'est une EXCEPTION, pas la regle : pour nos propres assets, la
+       mise a l'echelle se fait dans Blender avant l'export, afin que le
+       code ne porte aucun nombre magique. On l'accepte ici parce que le
+       modele vient d'une bibliotheque externe. */
+    const TARGET_HEIGHT = 1.55;
+    const scale = TARGET_HEIGHT / model.size.y;
+
+    const root = model.root;
+    root.scale.setScalar(scale);
+    root.rotation.y = -0.5;
+    root.position.set(-2.1, 0, 2.6);
+    this.scene.add(root);
+
+    // L'objet devient observable : on pose les donnees sur chacun de ses
+    // maillages, puisque c'est le maillage touche par le rayon qui compte.
+    const data: Interactable = {
+      id: 'press_camera',
+      title: 'Appareil photo de presse',
+      prompt: 'Examiner l\u2019appareil photo',
+      info:
+        'Un appareil à soufflet monté sur trépied, du modèle qu\u2019utilisent ' +
+        'les reporters de faits divers. Le magasin est vide : les plaques ont été retirées.',
+    };
+    root.traverse((node) => {
+      if (node instanceof THREE.Mesh) node.userData.interactable = data;
+    });
+
+    /* COLLISION.
+       Ce modele ne contient pas de maillage nomme "collision" : c'est le
+       cas de la plupart des assets telechargés. On lui fabrique donc une
+       forme solide simple, calculee depuis son encombrement reel.
+
+       Pour nos propres decors, cette forme sera modelisee dans Blender
+       et importee avec le fichier : c'est la regle decrite dans
+       world/model.ts. On ne met JAMAIS la geometrie visible dans les
+       collisions, elle est bien trop detaillee. */
+    this.addCollisionProxy(root);
+  }
+
+  /** Fabrique une boite de collision invisible autour d'un objet. */
+  private addCollisionProxy(target: THREE.Object3D): void {
+    const box = new THREE.Box3().setFromObject(target);
+    const size = new THREE.Vector3();
+    const center = new THREE.Vector3();
+    box.getSize(size);
+    box.getCenter(center);
+
+    // Retrecie horizontalement : un trepied est surtout du vide, et une
+    // boite pleine donnerait l'impression de heurter de l'air.
+    const proxy = new THREE.Mesh(
+      new THREE.BoxGeometry(size.x * 0.45, size.y, size.z * 0.45),
+      new THREE.MeshBasicMaterial(),
+    );
+    proxy.position.set(center.x, box.min.y + size.y / 2, center.z);
+    proxy.visible = false;
+    proxy.userData.collision = true;
+    this.scene.add(proxy);
+  }
 }
 
 /* -------------------------------------------------------------------
@@ -311,3 +403,4 @@ export class TestRoomScene {
    Ils ne portent PAS userData.collision : on peut s'en approcher de
    tout pres, ce qui est necessaire pour les examiner.
    ------------------------------------------------------------------- */
+

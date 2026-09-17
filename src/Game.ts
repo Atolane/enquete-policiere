@@ -6,6 +6,12 @@
    image. C'est le fichier a lire pour comprendre comment le jeu est
    branche.
 
+   Ordre de demarrage :
+     constructor  -> monte tout ce qui est immediat
+     await load() -> telecharge les modeles, puis construit les
+                     collisions (qui dependent des modeles charges)
+     start()      -> lance la boucle
+
    Ordre d'une image :
      entrees deja collectees par Input
        -> le joueur se met a jour (regard, deplacement, gravite,
@@ -17,6 +23,7 @@
 
 import { Engine } from './core/Engine';
 import { Input } from './core/Input';
+import { ModelLibrary } from './core/Loaders';
 import { Player } from './player/Player';
 import { Collider } from './player/Collider';
 import { InteractionSystem } from './interaction/InteractionSystem';
@@ -40,9 +47,14 @@ export class Game {
   private readonly input: Input;
   private readonly player: Player;
   private readonly room: TestRoomScene;
-  private readonly collider: Collider;
+  private readonly models = new ModelLibrary();
   private readonly interaction: InteractionSystem;
   private readonly hud: Hud;
+
+  /* Les collisions ne peuvent etre construites qu'APRES le chargement des
+     modeles, puisqu'un decor importe apporte sa propre geometrie solide.
+     Ce champ reste donc vide jusqu'a la fin de load(). */
+  private collider: Collider | null = null;
 
   private mode: GameMode = 'exploring';
 
@@ -55,16 +67,6 @@ export class Game {
     this.hud = new Hud();
     this.room = new TestRoomScene();
     this.player = new Player();
-
-    // Collisions : on extrait du decor une geometrie simplifiee, puis on
-    // construit l'arbre de recherche une seule fois, au chargement.
-    const collisionGeometry = buildCollisionGeometry(this.room.scene);
-    this.collider = new Collider(collisionGeometry);
-    this.player.setCollider(this.collider);
-
-    console.info(
-      `[collisions] ${triangleCount(collisionGeometry)} triangles de collision`,
-    );
 
     this.player.spawn(this.room.spawn, this.room.spawnYaw);
 
@@ -82,6 +84,35 @@ export class Game {
     this.hud.setLocked(this.input.isLocked());
   }
 
+  /**
+   * Telecharge les modeles 3D puis prepare ce qui en depend.
+   * A appeler une fois, avant start().
+   */
+  async load(): Promise<void> {
+    this.models.onProgress = (ratio, label) => this.hud.setLoadingProgress(ratio, label);
+    this.hud.setLoadingProgress(0, '');
+
+    await this.room.load(this.models);
+
+    /* Les collisions sont construites MAINTENANT, et pas avant : la
+       geometrie solide apportee par les modeles importes doit y figurer.
+       C'est le seul changement d'ordre qu'impose le chargement d'assets. */
+    const collisionGeometry = buildCollisionGeometry(this.room.scene);
+    this.collider = new Collider(collisionGeometry);
+    this.player.setCollider(this.collider);
+    console.info(`[collisions] ${triangleCount(collisionGeometry)} triangles de collision`);
+
+    this.hud.setLoadingProgress(1, '');
+    this.hud.hideLoading();
+  }
+
+  /** Affiche un message lisible plutot qu'un ecran noir en cas d'echec. */
+  showLoadingError(error: unknown): void {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error('[chargement]', error);
+    this.hud.showLoadingError(message);
+  }
+
   start(): void {
     this.engine.run((deltaTime) => this.update(deltaTime));
   }
@@ -89,7 +120,8 @@ export class Game {
   stop(): void {
     this.engine.stop();
     this.input.dispose();
-    this.collider.dispose();
+    this.collider?.dispose();
+    this.models.dispose();
   }
 
   // -----------------------------------------------------------------

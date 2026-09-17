@@ -16,7 +16,12 @@ export class Engine {
   readonly renderer: THREE.WebGLRenderer;
   readonly camera: THREE.PerspectiveCamera;
 
-  private readonly clock = new THREE.Clock();
+  /* THREE.Timer remplace THREE.Clock, desormais deprecie.
+     Avantage concret : connect(document) utilise l'API Page Visibility,
+     donc revenir sur l'onglet apres plusieurs minutes ne produit pas un
+     deltaTime gigantesque. Notre plafond a 0,1 s reste comme second
+     filet de securite (changement d'onglet non detecte, machine gelee). */
+  private readonly timer = new THREE.Timer();
   private readonly handleResize = () => this.resize();
 
   constructor(canvas: HTMLCanvasElement) {
@@ -31,10 +36,13 @@ export class Engine {
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.0;
 
-    // Ombres douces. Reglage volontairement modeste : l'eclairage final
-    // sera travaille bien plus tard.
+    // Ombres. Reglage volontairement modeste : l'eclairage final sera
+    // travaille bien plus tard.
+    // PCFSoftShadowMap a ete retire de Three.js : il etait silencieusement
+    // remplace par PCFShadowMap avec un avertissement dans la console. On
+    // demande donc directement PCFShadowMap.
     this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.renderer.shadowMap.type = THREE.PCFShadowMap;
 
     // fov 70 : un champ de vision un peu large, confortable en vue FPS.
     // 0.1 / 100 = distances minimale et maximale visibles, en metres.
@@ -46,18 +54,19 @@ export class Engine {
     // la vue se met a rouler sur le cote des qu'on regarde en hauteur.
     this.camera.rotation.order = 'YXZ';
 
+    this.timer.connect(document);
+
     this.resize();
     window.addEventListener('resize', this.handleResize);
   }
 
   /** Demarre la boucle. "update" est appele avant chaque image. */
   run(update: (deltaTime: number) => void): void {
-    this.clock.start();
     this.renderer.setAnimationLoop(() => {
-      // Si l'onglet passe en arriere-plan, getDelta() peut renvoyer plusieurs
-      // secondes au retour. On plafonne a 0.1 s pour eviter que le joueur ne
-      // traverse la piece d'un coup.
-      const deltaTime = Math.min(this.clock.getDelta(), 0.1);
+      this.timer.update();
+      // Plafond de securite : si une image dure anormalement longtemps,
+      // le joueur ne doit pas traverser la piece d'un coup.
+      const deltaTime = Math.min(this.timer.getDelta(), 0.1);
       update(deltaTime);
     });
   }
@@ -68,6 +77,7 @@ export class Engine {
 
   stop(): void {
     this.renderer.setAnimationLoop(null);
+    this.timer.disconnect();
     window.removeEventListener('resize', this.handleResize);
   }
 

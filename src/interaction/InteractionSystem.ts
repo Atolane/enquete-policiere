@@ -26,6 +26,16 @@
    indice a travers un mur. En prenant le premier objet rencontre, quel
    qu'il soit, un mur ou une caisse masque naturellement ce qui est
    derriere. C'est plus juste, et c'est gratuit.
+
+   ... a une exception pres : les objets INVISIBLES.
+
+   Contrairement a ce qu'on pourrait croire, le Raycaster de Three.js ne
+   tient aucun compte de la propriete "visible" : un objet masque est
+   touche comme un autre. Or les decors importes contiennent une forme
+   de collision invisible qui enveloppe tout. Sans precaution, ce volume
+   serait toujours le premier objet touche et PLUS AUCUN objet ne serait
+   observable. On ignore donc les objets invisibles : ils ne sont ni
+   cible, ni obstacle au regard.
    =================================================================== */
 
 import * as THREE from 'three';
@@ -91,11 +101,33 @@ export class InteractionSystem {
     this.raycaster.setFromCamera(this.screenCenter, this.camera);
 
     // true = on descend aussi dans les enfants des objets.
+    // Les resultats sont deja tries du plus proche au plus lointain.
     const hits = this.raycaster.intersectObjects(this.scene.children, true);
-    if (hits.length === 0) return null;
 
-    // Seul le PREMIER objet rencontre compte (voir l'explication en tete).
-    const data = hits[0].object.userData.interactable;
-    return (data as Interactable | undefined) ?? null;
+    for (const hit of hits) {
+      // Les objets invisibles (formes de collision, ancres) sont
+      // transparents pour le regard : on passe au suivant.
+      if (!isVisible(hit.object)) continue;
+
+      // Premier objet VISIBLE touche : lui seul compte. S'il n'est pas
+      // observable, c'est qu'il masque ce qui se trouve derriere.
+      const data = hit.object.userData.interactable;
+      return (data as Interactable | undefined) ?? null;
+    }
+
+    return null;
   }
+}
+
+/**
+ * Un objet est reellement visible seulement si lui ET tous ses parents
+ * le sont : masquer un groupe masque tout son contenu.
+ */
+function isVisible(object: THREE.Object3D): boolean {
+  let node: THREE.Object3D | null = object;
+  while (node) {
+    if (!node.visible) return false;
+    node = node.parent;
+  }
+  return true;
 }

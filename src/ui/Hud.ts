@@ -3,7 +3,9 @@
 
    Interface a l'ecran, en HTML/CSS pur (pas de 3D).
 
-   Quatre elements :
+   Cinq elements :
+     0. l'ECRAN DE CHARGEMENT, affiche pendant le telechargement des
+        modeles, avec une barre de progression ;
      1. le panneau "Cliquer pour jouer", tant que la souris n'est pas
         capturee ;
      2. le VISEUR au centre de l'ecran, qui s'ouvre quand on vise un
@@ -23,6 +25,9 @@ export class Hud {
   private readonly infoTitle: HTMLParagraphElement;
   private readonly infoText: HTMLParagraphElement;
   private readonly debugLine: HTMLDivElement;
+  private readonly loadingScreen: HTMLDivElement;
+  private readonly loadingBar: HTMLDivElement;
+  private readonly loadingLabel: HTMLParagraphElement;
 
   /* Le viseur depend de DEUX conditions : avoir le controle de la souris,
      et ne pas etre en train de lire une fiche. Les suivre separement et
@@ -75,6 +80,53 @@ export class Hud {
     this.debugLine = document.createElement('div');
     this.debugLine.id = 'debug-line';
     layer.appendChild(this.debugLine);
+
+    // Ecran de chargement : cree en dernier pour passer au-dessus du reste.
+    this.loadingScreen = document.createElement('div');
+    this.loadingScreen.id = 'loading-screen';
+    const loadingTitle = document.createElement('p');
+    loadingTitle.className = 'loading-title';
+    loadingTitle.textContent = 'Chargement';
+    this.loadingLabel = document.createElement('p');
+    this.loadingLabel.className = 'loading-label';
+    const track = document.createElement('div');
+    track.className = 'loading-track';
+    this.loadingBar = document.createElement('div');
+    this.loadingBar.className = 'loading-bar';
+    track.appendChild(this.loadingBar);
+    this.loadingScreen.append(loadingTitle, track, this.loadingLabel);
+    layer.appendChild(this.loadingScreen);
+  }
+
+  // ---------------------------------------------------------------
+  // Chargement
+  // ---------------------------------------------------------------
+
+  setLoadingProgress(ratio: number, label = ''): void {
+    this.loadingBar.style.width = `${Math.round(Math.min(1, Math.max(0, ratio)) * 100)}%`;
+    this.loadingLabel.textContent = label;
+  }
+
+  hideLoading(): void {
+    this.loadingScreen.classList.add('is-hidden');
+  }
+
+  /**
+   * Remplace l'ecran de chargement par un message d'erreur lisible.
+   *
+   * Sans cela, un simple chemin de fichier errone donnerait une page
+   * noire sans explication, ce qui est le pire cas pour diagnostiquer.
+   */
+  showLoadingError(message: string): void {
+    this.loadingScreen.classList.remove('is-hidden');
+    this.loadingScreen.classList.add('is-error');
+    this.loadingScreen.innerHTML = `
+      <p class="loading-title">Chargement impossible</p>
+      <p class="loading-error"></p>
+      <p class="loading-label">Vérifiez la console du navigateur (F12) pour le détail.</p>
+    `;
+    const target = this.loadingScreen.querySelector('.loading-error');
+    if (target) target.textContent = message;
   }
 
   /** Affiche ou masque le panneau d'accueil selon l'etat du Pointer Lock. */
