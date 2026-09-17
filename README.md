@@ -3,11 +3,11 @@
 Petit jeu d'enquête policière 3D en vue FPS, jouable dans un navigateur.
 États-Unis, 1948. Ambiance film noir. Une seule affaire de meurtre.
 
-**État actuel : Phase 2B — collisions réelles.**
+**État actuel : Phase 2C — prototype complet.**
 Une pièce de test en primitives (graybox), une caméra à la première personne,
-le déplacement ZQSD/WASD, la gravité et de vraies collisions : murs, escalier,
-rampe, passage étroit, obstacles. Pas encore d'interactions, de personnages
-ni d'enquête.
+le déplacement ZQSD/WASD, la gravité, de vraies collisions (murs, escalier,
+rampe, passage étroit) et l'observation d'objets : viseur, libellé d'action
+et fiche d'information. Pas encore de personnages, de dialogues ni d'enquête.
 
 ### Commandes en jeu
 
@@ -17,6 +17,7 @@ ni d'enquête.
 | `Z Q S D` / `W A S D` / flèches | se déplacer |
 | souris | regarder autour de soi |
 | `Maj` | marcher plus vite |
+| clic | examiner l'objet visé / fermer la fiche |
 | `Échap` | libérer la souris |
 
 ---
@@ -102,7 +103,7 @@ réellement besoin.
 - [x] **Phase 1** — socle technique : projet, arborescence, build, déploiement
 - [x] **Phase 2A** — socle FPS : pièce de test, caméra FPS, déplacement, gravité
 - [x] **Phase 2B** — collisions réelles : capsule contre géométrie (three-mesh-bvh)
-- [ ] **Phase 2C** — viseur, objet observable, interaction
+- [x] **Phase 2C** — viseur, objets observables, fiche d'information
 - [ ] Phase 3 — chargement de modèles GLB
 - [ ] Phase 4 — premier personnage animé
 - [ ] Phase 5 — dialogues

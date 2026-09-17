@@ -19,6 +19,7 @@
    =================================================================== */
 
 import * as THREE from 'three';
+import type { Interactable } from '../../interaction/InteractionSystem';
 
 /** Cote interieur de la piece, en metres (12 x 12 m). */
 const ROOM_SIZE = 12;
@@ -50,6 +51,9 @@ export class TestRoomScene {
     stone: new THREE.MeshStandardMaterial({ color: 0x5c564d, roughness: 0.95 }),
     wood: new THREE.MeshStandardMaterial({ color: 0x6f4f38, roughness: 0.6 }),
     test: new THREE.MeshStandardMaterial({ color: 0x5f7360, roughness: 0.8 }),
+    // Les objets observables sont plus clairs : reperables sans etre signales
+    // par une fleche ou une aura, ce qui casserait l'ambiance.
+    object: new THREE.MeshStandardMaterial({ color: 0xcfc4ab, roughness: 0.5 }),
   };
 
   constructor() {
@@ -57,6 +61,7 @@ export class TestRoomScene {
     this.buildRoom();
     this.buildProps();
     this.buildCollisionTests();
+    this.buildExaminables();
   }
 
   /**
@@ -223,4 +228,86 @@ export class TestRoomScene {
     // Palier en haut de la rampe.
     this.addBox([1.6, rampRise, 1.8], [5.1, rampRise / 2, 3.6], m);
   }
+
+  // -----------------------------------------------------------------
+  // Objets observables (Phase 2C)
+  // -----------------------------------------------------------------
+
+  /** Rend un objet observable : il porte ses donnees dans userData. */
+  private makeExaminable(mesh: THREE.Mesh, data: Interactable): THREE.Mesh {
+    mesh.castShadow = true;
+    mesh.userData.interactable = data; // <- lu par InteractionSystem
+    this.scene.add(mesh);
+    return mesh;
+  }
+
+  private buildExaminables(): void {
+    // --- 1. Un cendrier, pose sur la table ---
+    const ashtray = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.1, 0.08, 0.04, 20),
+      this.materials.object,
+    );
+    ashtray.position.set(-4.5, 0.81, 3.5);
+    this.makeExaminable(ashtray, {
+      id: 'ashtray',
+      title: 'Cendrier',
+      prompt: 'Examiner le cendrier',
+      info:
+        'Un mégot taché de rouge à lèvres, écrasé récemment. ' +
+        'Quelqu\u2019un est resté ici après la fermeture.',
+    });
+
+    // --- 2. Un document, pose sur la grande caisse ---
+    const document = new THREE.Mesh(
+      new THREE.BoxGeometry(0.3, 0.015, 0.22),
+      this.materials.object,
+    );
+    document.position.set(3.5, 1.41, -2.0);
+    document.rotation.y = 0.3;
+    this.makeExaminable(document, {
+      id: 'report',
+      title: 'Rapport dactylographié',
+      prompt: 'Lire le document',
+      info:
+        'Un rapport daté du 12 novembre 1948. ' +
+        'Le nom du signataire a été soigneusement découpé au rasoir.',
+    });
+
+    // --- 3. Un telephone, sur la plateforme en haut de l'escalier ---
+    const phoneBase = new THREE.Mesh(
+      new THREE.BoxGeometry(0.22, 0.09, 0.16),
+      this.materials.object,
+    );
+    phoneBase.position.set(-4.7, 0.9, -3.0);
+    const handset = new THREE.Mesh(
+      new THREE.CapsuleGeometry(0.035, 0.18, 4, 10),
+      this.materials.object,
+    );
+    handset.rotation.z = Math.PI / 2;
+    handset.position.set(0, 0.08, 0);
+    phoneBase.add(handset); // l'ecouteur suit le socle
+    this.makeExaminable(phoneBase, {
+      id: 'phone',
+      title: 'Téléphone',
+      prompt: 'Examiner le téléphone',
+      info:
+        'Le combiné est décroché et posé de travers. ' +
+        'La ligne est muette : quelqu\u2019un a appelé, puis n\u2019a pas raccroché.',
+    });
+    // L'ecouteur est un enfant : on lui donne les memes donnees pour que
+    // viser l'un ou l'autre revienne au meme.
+    handset.userData.interactable = phoneBase.userData.interactable;
+    handset.castShadow = true;
+  }
 }
+
+/* -------------------------------------------------------------------
+   OBJETS OBSERVABLES (Phase 2C)
+
+   Trois objets pour verifier le systeme d'interaction. Les formes sont
+   des primitives et les textes sont des ESPACES RESERVES : ils seront
+   remplaces par les vrais indices de l'affaire, ecrits en Phase 9.
+
+   Ils ne portent PAS userData.collision : on peut s'en approcher de
+   tout pres, ce qui est necessaire pour les examiner.
+   ------------------------------------------------------------------- */

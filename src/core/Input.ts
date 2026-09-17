@@ -58,8 +58,17 @@ export class Input {
   /** La souris est-elle capturee par le jeu ? */
   private locked = false;
 
+  /** Les commandes de deplacement repondent-elles ?
+      Mises en pause pendant la lecture d'une information. */
+  private enabled = true;
+
   /** Appele quand le Pointer Lock est pris ou perdu (pour l'interface). */
   onLockChange: ((locked: boolean) => void) | null = null;
+
+  /** Appele quand le joueur clique ALORS QUE la souris est deja capturee.
+      Le tout premier clic, celui qui capture la souris, ne le declenche
+      pas : sinon on activerait un objet en reprenant simplement la main. */
+  onClick: (() => void) | null = null;
 
   constructor(private readonly canvas: HTMLCanvasElement) {
     window.addEventListener('keydown', this.handleKeyDown);
@@ -71,7 +80,24 @@ export class Input {
   }
 
   isActive(action: InputAction): boolean {
-    return this.active.has(action);
+    return this.enabled && this.active.has(action);
+  }
+
+  /**
+   * Suspend ou retablit les commandes de deplacement et de regard.
+   *
+   * Les touches enfoncees restent memorisees : si le joueur maintient Z
+   * pendant qu'il lit une information, il repart bien en avant a la
+   * fermeture, sans avoir a relacher la touche.
+   */
+  setEnabled(enabled: boolean): void {
+    this.enabled = enabled;
+    if (!enabled) {
+      // On jette le mouvement de souris accumule, sinon la vue ferait un
+      // bond au moment ou l'on rend la main au joueur.
+      this.mouseDeltaX = 0;
+      this.mouseDeltaY = 0;
+    }
   }
 
   isLocked(): boolean {
@@ -127,7 +153,7 @@ export class Input {
   };
 
   private handleMouseMove = (event: MouseEvent): void => {
-    if (!this.locked) return;
+    if (!this.locked || !this.enabled) return;
     // movementX/Y : deplacement RELATIF depuis le dernier evenement.
     // C'est la seule mesure utilisable quand le curseur est capture,
     // puisqu'il n'a plus de position a l'ecran.
@@ -136,7 +162,11 @@ export class Input {
   };
 
   private handleCanvasClick = (): void => {
-    if (this.locked) return;
+    if (this.locked) {
+      // Souris deja capturee : le clic est une action de jeu.
+      this.onClick?.();
+      return;
+    }
     // Le Pointer Lock exige un geste explicite de l'utilisateur : impossible
     // de capturer la souris au chargement de la page.
     try {

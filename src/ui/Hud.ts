@@ -1,18 +1,36 @@
 /* ===================================================================
    src/ui/Hud.ts
 
-   Interface minimale de la Phase 2A, en HTML/CSS pur (pas de 3D).
+   Interface a l'ecran, en HTML/CSS pur (pas de 3D).
 
-   Deux elements :
-     1. un panneau "Cliquer pour jouer" + rappel des touches, affiche
-        tant que la souris n'est pas capturee ;
-     2. un petit affichage de controle (images par seconde, position)
-        qui sert uniquement a verifier la Phase 2A. Il disparaitra.
+   Quatre elements :
+     1. le panneau "Cliquer pour jouer", tant que la souris n'est pas
+        capturee ;
+     2. le VISEUR au centre de l'ecran, qui s'ouvre quand on vise un
+        objet observable ;
+     3. le LIBELLE d'action sous le viseur ("Examiner le cendrier") ;
+     4. le PANNEAU D'INFORMATION affiche au clic.
+
+   Le HUD ne decide de rien : il se contente d'afficher ce qu'on lui
+   demande. C'est Game qui pilote.
    =================================================================== */
 
 export class Hud {
   private readonly lockPanel: HTMLDivElement;
+  private readonly crosshair: HTMLDivElement;
+  private readonly promptLine: HTMLDivElement;
+  private readonly infoPanel: HTMLDivElement;
+  private readonly infoTitle: HTMLParagraphElement;
+  private readonly infoText: HTMLParagraphElement;
   private readonly debugLine: HTMLDivElement;
+
+  /* Le viseur depend de DEUX conditions : avoir le controle de la souris,
+     et ne pas etre en train de lire une fiche. Les suivre separement et
+     laisser chaque methode toucher la classe CSS menait a des etats
+     incoherents (le viseur restait masque apres la fermeture d'une fiche).
+     On memorise donc l'etat, et une seule methode decide de l'affichage. */
+  private locked = false;
+  private infoVisible = false;
 
   constructor() {
     const layer = document.querySelector<HTMLDivElement>('#ui-layer');
@@ -26,22 +44,82 @@ export class Hud {
         <li><b>Z Q S D</b> ou <b>W A S D</b> — se déplacer</li>
         <li><b>Souris</b> — regarder autour de soi</li>
         <li><b>Maj</b> — marcher plus vite</li>
+        <li><b>Clic</b> — examiner ce que l'on regarde</li>
         <li><b>Échap</b> — libérer la souris</li>
       </ul>
     `;
     layer.appendChild(this.lockPanel);
+
+    this.crosshair = document.createElement('div');
+    this.crosshair.id = 'crosshair';
+    layer.appendChild(this.crosshair);
+
+    this.promptLine = document.createElement('div');
+    this.promptLine.id = 'prompt-line';
+    this.promptLine.classList.add('is-hidden'); // rien a annoncer au demarrage
+    layer.appendChild(this.promptLine);
+
+    this.infoPanel = document.createElement('div');
+    this.infoPanel.id = 'info-panel';
+    this.infoPanel.classList.add('is-hidden');
+    this.infoTitle = document.createElement('p');
+    this.infoTitle.className = 'info-title';
+    this.infoText = document.createElement('p');
+    this.infoText.className = 'info-text';
+    const infoHint = document.createElement('p');
+    infoHint.className = 'info-hint';
+    infoHint.textContent = 'Clic ou Échap pour fermer';
+    this.infoPanel.append(this.infoTitle, this.infoText, infoHint);
+    layer.appendChild(this.infoPanel);
 
     this.debugLine = document.createElement('div');
     this.debugLine.id = 'debug-line';
     layer.appendChild(this.debugLine);
   }
 
-  /** Affiche ou masque le panneau selon l'etat du Pointer Lock. */
+  /** Affiche ou masque le panneau d'accueil selon l'etat du Pointer Lock. */
   setLocked(locked: boolean): void {
+    this.locked = locked;
     this.lockPanel.classList.toggle('is-hidden', locked);
+    this.refreshCrosshair();
   }
 
-  /** Ligne de controle temporaire. */
+  /**
+   * Met a jour le viseur et le libelle d'action.
+   * @param prompt texte a afficher, ou null si le joueur ne vise rien.
+   */
+  setTarget(prompt: string | null): void {
+    this.crosshair.classList.toggle('is-active', prompt !== null);
+    this.promptLine.textContent = prompt ?? '';
+    this.promptLine.classList.toggle('is-hidden', prompt === null || this.infoVisible);
+  }
+
+  showInfo(title: string, text: string): void {
+    this.infoTitle.textContent = title;
+    this.infoText.textContent = text;
+    this.infoVisible = true;
+    this.infoPanel.classList.remove('is-hidden');
+    // Pendant la lecture, ni viseur ni libelle : ils distrairaient.
+    this.promptLine.classList.add('is-hidden');
+    this.refreshCrosshair();
+  }
+
+  hideInfo(): void {
+    this.infoVisible = false;
+    this.infoPanel.classList.add('is-hidden');
+    this.refreshCrosshair();
+  }
+
+  isInfoVisible(): boolean {
+    return this.infoVisible;
+  }
+
+  /** Seul endroit qui decide si le viseur est visible. */
+  private refreshCrosshair(): void {
+    this.crosshair.classList.toggle('is-hidden', !this.locked || this.infoVisible);
+  }
+
+  /** Ligne de controle technique. Temporaire. */
   setDebug(fps: number, x: number, y: number, z: number, grounded: boolean): void {
     this.debugLine.textContent =
       `${fps.toFixed(0)} img/s` +

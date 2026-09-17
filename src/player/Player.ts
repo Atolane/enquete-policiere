@@ -115,15 +115,22 @@ export class Player {
        de collision devient brutale. Sur une machine lente (20 images par
        seconde), le joueur se bloquait dans l'escalier et tremblait.
 
-       En decoupant le temps ecoule en tranches de 1/60 s, le jeu se
-       comporte EXACTEMENT de la meme facon a 20, 60 ou 144 images par
-       seconde. deltaTime etant deja plafonne a 0,1 s par le moteur, ce
-       sont au maximum 6 tranches. */
-    let remaining = deltaTime;
-    while (remaining > 0) {
-      const step = Math.min(remaining, MAX_STEP);
+       En decoupant le temps ecoule en tranches de 1/60 s au maximum, le
+       jeu se comporte EXACTEMENT de la meme facon a 20, 60 ou 144 images
+       par seconde. deltaTime etant deja plafonne a 0,1 s par le moteur,
+       ce sont au maximum 6 tranches.
+
+       On calcule le NOMBRE de tranches, puis on les fait toutes egales.
+       Retrancher 1/60 s en boucle jusqu'a epuisement paraissait plus
+       simple, mais les arrondis laissaient parfois une derniere tranche
+       de duree quasi nulle. Pendant une tranche aussi courte le joueur ne
+       s'enfonce pas d'un cheveu dans le sol, aucun contact n'est detecte,
+       et il etait signale "en l'air" alors qu'il etait parfaitement
+       immobile sur le plancher. */
+    const steps = Math.max(1, Math.ceil(deltaTime / MAX_STEP));
+    const step = deltaTime / steps;
+    for (let i = 0; i < steps; i++) {
       this.simulate(step, input);
-      remaining -= step;
     }
 
     // --- 3. Camera ------------------------------------------------
