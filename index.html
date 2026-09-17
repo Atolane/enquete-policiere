@@ -3,6 +3,11 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Icone d'onglet integree (evite une requete 404 vers /favicon.ico). -->
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%2307090d'/%3E%3Ccircle cx='14' cy='13' r='7' fill='none' stroke='%23d8d2c4' stroke-width='2.5'/%3E%3Cpath d='M19 18l7 8' stroke='%23d8d2c4' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E"
+    />
     <title>Enquête — 1948</title>
     <meta name="description" content="Jeu d'enquête policière en vue FPS, États-Unis 1948." />
   </head>
@@ -14,8 +19,8 @@
          par-dessus le canvas. Vide pour l'instant. -->
     <div id="ui-layer"></div>
 
-    <!-- Temporaire : vérification visuelle que la Phase 1 fonctionne. -->
-    <div id="phase-badge">Phase 1 — socle technique</div>
+    <!-- Temporaire : repère de l'étape en cours. -->
+    <div id="phase-badge">Phase 2A — socle FPS</div>
 
     <!-- type="module" permet d'utiliser les imports ES. Vite s'occupe du reste. -->
     <script type="module" src="/src/main.ts"></script>
