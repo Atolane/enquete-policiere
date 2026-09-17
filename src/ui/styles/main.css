@@ -1,0 +1,53 @@
+/* ---------------------------------------------------------------
+   Feuille de style de base.
+   L'ambiance film noir viendra plus tard ; ici on pose juste les
+   regles indispensables pour un jeu en plein ecran.
+   --------------------------------------------------------------- */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden; /* pas de barres de defilement dans un jeu */
+  background: #07090d; /* noir bleute, la couleur de fond du jeu */
+  color: #d8d2c4;
+  font-family: 'Courier New', Courier, monospace;
+}
+
+/* Le canvas occupe tout l'ecran et se place sous l'interface. */
+#game-canvas {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* La couche d'interface couvre l'ecran mais laisse passer la souris
+   par defaut : seuls les elements interactifs la reactiveront. */
+#ui-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* Temporaire (Phase 1) : petit repere en bas de l'ecran. */
+#phase-badge {
+  position: fixed;
+  bottom: 12px;
+  left: 12px;
+  padding: 6px 10px;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #8b8578;
+  border-left: 2px solid #4a4640;
+  pointer-events: none;
+}

@@ -1,0 +1,21 @@
+# Dependances installees par npm (jamais versionnees : elles se reinstallent)
+node_modules/
+
+# Resultat du build de production
+dist/
+dist-ssr/
+
+# Caches
+.vite/
+*.tsbuildinfo
+
+# Fichiers locaux et systeme
+*.local
+.env.local
+.DS_Store
+Thumbs.db
+
+# Editeurs
+.vscode/*
+!.vscode/extensions.json
+.idea/

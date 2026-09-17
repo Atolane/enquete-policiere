@@ -1,0 +1,35 @@
+{
+  "compilerOptions": {
+    /* Version de JavaScript produite. ES2022 est comprise par tous les
+       navigateurs modernes et permet d'ecrire du code simple et lisible. */
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+
+    /* On ecrit des modules ES ("import" / "export"), resolus comme le fait Vite. */
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "moduleDetection": "force",
+    "verbatimModuleSyntax": true,
+
+    /* C'est Vite qui transforme le TypeScript en JavaScript.
+       TypeScript ne sert donc QUE a verifier les erreurs, il ne produit aucun fichier. */
+    "noEmit": true,
+
+    /* Mode strict : TypeScript signale les erreurs le plus tot possible.
+       C'est notre principal filet de securite. */
+    "strict": true,
+    "noFallthroughCasesInSwitch": true,
+
+    /* Volontairement desactives : pendant l'apprentissage, il est normal de
+       declarer une variable avant de l'utiliser. On pourra les activer plus tard. */
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+
+    /* Accelere la verification en ignorant l'interieur des bibliotheques. */
+    "skipLibCheck": true,
+
+    /* Rend connus les types propres a Vite (import.meta.env, import de .glb, etc.). */
+    "types": ["vite/client"]
+  },
+  "include": ["src", "vite.config.ts"]
+}

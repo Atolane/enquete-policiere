@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Enquête — 1948</title>
+    <meta name="description" content="Jeu d'enquête policière en vue FPS, États-Unis 1948." />
+  </head>
+  <body>
+    <!-- La 3D est dessinée ici. Un seul canvas pour tout le jeu. -->
+    <canvas id="game-canvas"></canvas>
+
+    <!-- Toute l'interface (carnet, dialogues, réticule) viendra ici, en HTML,
+         par-dessus le canvas. Vide pour l'instant. -->
+    <div id="ui-layer"></div>
+
+    <!-- Temporaire : vérification visuelle que la Phase 1 fonctionne. -->
+    <div id="phase-badge">Phase 1 — socle technique</div>
+
+    <!-- type="module" permet d'utiliser les imports ES. Vite s'occupe du reste. -->
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
