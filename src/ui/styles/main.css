@@ -268,3 +268,16 @@ body {
   line-height: 1.6;
   color: #ddd6c6;
 }
+
+/* Seconde ligne de controle : etat des personnages (Phase 4, temporaire). */
+#debug-characters {
+  position: fixed;
+  top: 36px;
+  left: 12px;
+  padding: 5px 9px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: #8b7f96;
+  background: rgba(7, 9, 13, 0.55);
+  border-left: 2px solid #4a3f52;
+}

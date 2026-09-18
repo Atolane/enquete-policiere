@@ -21,6 +21,7 @@
        -> on dessine
    =================================================================== */
 
+import * as THREE from 'three';
 import { Engine } from './core/Engine';
 import { Input } from './core/Input';
 import { ModelLibrary } from './core/Loaders';
@@ -58,10 +59,41 @@ export class Game {
 
   private mode: GameMode = 'exploring';
 
+  /* --- Personnages (Phase 4) ---
+     Le nombre est reglable par ?personnages=N dans l'adresse, pour
+     pouvoir mesurer le cout sur sa propre machine. */
+  private readonly characterCount: number;
+  /** Distance au-dela de laquelle un personnage cesse de regarder. */
+  private static readonly LOOK_RANGE = 4.5;
+  private readonly frustum = new THREE.Frustum();
+  private readonly frustumMatrix = new THREE.Matrix4();
+  /* Rayon serre autour du corps. Trop large, la sphere engloberait la
+     camera quand le joueur est colle au personnage, et celui-ci serait
+     considere comme visible alors qu'on lui tourne le dos. */
+  private readonly characterSphere = new THREE.Sphere(new THREE.Vector3(), 1.0);
+  private readonly eyePosition = new THREE.Vector3();
+  private readonly viewDirection = new THREE.Vector3();
+  private readonly toCharacter = new THREE.Vector3();
+  /** Personnage que le joueur regarde, sinon null. */
+  private focused: import('./world/Character').Character | null = null;
+  /** Temps processeur passe a animer les personnages, en millisecondes.
+      Mesure independante de la carte graphique : c'est le cout reel du
+      squelette et du melange d'animations. */
+  private characterCostMs = 0;
+
   /** Compteur d'images par seconde, lisse pour rester lisible. */
   private fps = 60;
 
   constructor(canvas: HTMLCanvasElement) {
+    /* ?personnages=N regle le nombre de mannequins (0 a 8). Sert a mesurer
+       leur cout sur sa propre machine : 0 donne la reference sans aucun
+       personnage. Absent, la valeur par defaut est 2. */
+    const param = new URLSearchParams(window.location.search).get('personnages');
+    const requested = param === null ? 2 : Number(param);
+    this.characterCount = Number.isFinite(requested)
+      ? Math.min(Math.max(Math.trunc(requested), 0), 8)
+      : 2;
+
     this.engine = new Engine(canvas);
     this.input = new Input(canvas);
     this.hud = new Hud();
@@ -92,7 +124,7 @@ export class Game {
     this.models.onProgress = (ratio, label) => this.hud.setLoadingProgress(ratio, label);
     this.hud.setLoadingProgress(0, '');
 
-    await this.room.load(this.models);
+    await this.room.load(this.models, this.characterCount);
 
     /* Les collisions sont construites MAINTENANT, et pas avant : la
        geometrie solide apportee par les modeles importes doit y figurer.
@@ -120,6 +152,7 @@ export class Game {
   stop(): void {
     this.engine.stop();
     this.input.dispose();
+    for (const character of this.room.characters) character.dispose();
     this.collider?.dispose();
     this.models.dispose();
   }
@@ -158,8 +191,63 @@ export class Game {
   // Boucle
   // -----------------------------------------------------------------
 
+  /**
+   * Met a jour les personnages.
+   *
+   * Deux economies importantes :
+   *  - un personnage hors du champ de vision n'est pas anime du tout.
+   *    La deformation d'un maillage par son squelette est le poste le
+   *    plus couteux, et elle est inutile si personne ne le voit ;
+   *  - un personnage trop eloigne ne tourne pas la tete.
+   */
+  private updateCharacters(deltaTime: number): void {
+    const started = performance.now();
+    const camera = this.engine.camera;
+    this.frustumMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+    this.frustum.setFromProjectionMatrix(this.frustumMatrix);
+    this.player.getEyePosition(this.eyePosition);
+    camera.getWorldDirection(this.viewDirection);
+
+    /* On retient le personnage que le joueur REGARDE, pas le plus proche :
+       la ligne de controle suit ainsi celui qu'on observe, meme en
+       s'en eloignant. */
+    this.focused = null;
+    let bestAlignment = Math.cos(THREE.MathUtils.degToRad(50));
+
+    for (const character of this.room.characters) {
+      this.characterSphere.center.copy(character.root.position);
+      this.characterSphere.center.y += 0.9; // centre du corps, pas les pieds
+      const visible = this.frustum.intersectsSphere(this.characterSphere);
+
+      const distance = character.root.position.distanceTo(this.eyePosition);
+      const near = distance <= Game.LOOK_RANGE;
+
+      // Le personnage suit le joueur des yeux quand il est proche, et
+      // passe en posture attentive. C'est le seul "comportement" de cette
+      // phase : aucun dialogue, aucune logique d'enquete.
+      character.lookAt(near ? this.eyePosition : null);
+      character.setState(near ? 'attentive' : 'idle');
+
+      character.update(deltaTime, visible);
+
+      this.toCharacter.copy(character.root.position).setY(this.eyePosition.y)
+        .sub(this.eyePosition);
+      if (this.toCharacter.lengthSq() > 1e-6) {
+        const alignment = this.toCharacter.normalize().dot(this.viewDirection);
+        if (alignment > bestAlignment) {
+          bestAlignment = alignment;
+          this.focused = character;
+        }
+      }
+    }
+
+    // Moyenne glissante : la valeur brute varie trop pour etre lue.
+    this.characterCostMs += (performance.now() - started - this.characterCostMs) * 0.1;
+  }
+
   private update(deltaTime: number): void {
     this.player.update(deltaTime, this.input, this.engine.camera);
+    this.updateCharacters(deltaTime);
 
     // On ne cherche une cible que si le joueur peut reellement agir.
     if (this.mode === 'exploring' && this.input.isLocked()) {
@@ -170,6 +258,8 @@ export class Game {
     if (deltaTime > 0) this.fps += (1 / deltaTime - this.fps) * 0.1;
     const p = this.player.position;
     this.hud.setDebug(this.fps, p.x, p.y, p.z, this.player.grounded);
+    this.hud.setCharacterDebug(
+      this.room.characters, this.eyePosition, this.focused, this.characterCostMs);
 
     this.engine.render(this.room.scene);
   }

@@ -17,6 +17,10 @@
    PHASE 3 : la piece charge en plus un VRAI modele GLB (un appareil
    photo sur trepied) pour valider le pipeline d'assets de bout en bout.
 
+   PHASE 4 : elle accueille des personnages animes, mannequins d'essai
+   destines a valider la chaine technique. Leur nombre peut etre change
+   par le parametre d'adresse ?personnages=N, pour mesurer le cout.
+
    Tout objet solide porte le marqueur userData.collision = true,
    lu par world/collision.ts.
    =================================================================== */
@@ -25,6 +29,8 @@ import * as THREE from 'three';
 import type { Interactable } from '../../interaction/InteractionSystem';
 import type { ModelLibrary } from '../../core/Loaders';
 import { prepareModel, logModelReport } from '../model';
+import { CharacterFactory } from '../CharacterFactory';
+import type { Character } from '../Character';
 
 /** Cote interieur de la piece, en metres (12 x 12 m). */
 const ROOM_SIZE = 12;
@@ -40,6 +46,11 @@ const PLATFORM_HEIGHT = STEP_RISE * STEP_COUNT; // 0,85 m
 
 export class TestRoomScene {
   readonly scene = new THREE.Scene();
+
+  /** Personnages presents, dans l'ordre de placement. */
+  readonly characters: Character[] = [];
+
+  private readonly characterFactory = new CharacterFactory();
 
   /** Position d'apparition du joueur (aux pieds). */
   readonly spawn = new THREE.Vector3(0, 0, 4);
@@ -76,8 +87,11 @@ export class TestRoomScene {
    * le constructeur monte la partie immediate, load() attend le reste.
    * C'est ce decoupage qui permet d'afficher un ecran de chargement.
    */
-  async load(models: ModelLibrary): Promise<void> {
-    await this.loadCamera(models);
+  async load(models: ModelLibrary, characterCount = 2): Promise<void> {
+    await Promise.all([
+      this.loadCamera(models),
+      this.loadCharacters(models, characterCount),
+    ]);
   }
 
   /**
@@ -370,6 +384,86 @@ export class TestRoomScene {
        world/model.ts. On ne met JAMAIS la geometrie visible dans les
        collisions, elle est bien trop detaillee. */
     this.addCollisionProxy(root);
+  }
+
+  // -----------------------------------------------------------------
+  // Personnages (Phase 4)
+  // -----------------------------------------------------------------
+
+  /** Emplacements possibles : position, orientation et teinte. */
+  private static readonly CHARACTER_SPOTS: Array<{
+    pos: [number, number, number];
+    yaw: number;
+    tint: number;
+    label: string;
+  }> = [
+    /* Tous dans la bande degagee au centre de la piece (z entre -1 et 1) :
+       ailleurs, l'escalier, la rampe, les caisses ou les blocs du passage
+       masqueraient les personnages. Les deux premiers sont separes de plus
+       de 6 m et tournes vers l'entree : un personnage qui vous tourne le
+       dos ne peut pas vous suivre des yeux, ce qui rendrait la phase
+       intestable. Les suivants ne servent qu'aux mesures de performance
+       (?personnages=N). */
+    { pos: [-3.2, 0, -0.2], yaw: 1.08, tint: 0xffffff, label: 'Mannequin A' },
+    { pos: [3.2, 0, -0.2], yaw: -1.08, tint: 0xd6a97a, label: 'Mannequin B' },
+    { pos: [-1.6, 0, -0.6], yaw: 0.5, tint: 0x9fb4c8, label: 'Mannequin C' },
+    { pos: [1.6, 0, -0.6], yaw: -0.5, tint: 0xc0c0a8, label: 'Mannequin D' },
+    { pos: [-4.6, 0, 0.6], yaw: 1.3, tint: 0xbba0c4, label: 'Mannequin E' },
+    { pos: [4.6, 0, 0.6], yaw: -1.3, tint: 0xa8c4a0, label: 'Mannequin F' },
+    { pos: [-0.6, 0, -1.6], yaw: 0.25, tint: 0xd0b8a0, label: 'Mannequin G' },
+    { pos: [0.8, 0, -1.6], yaw: -0.25, tint: 0xa0a8d0, label: 'Mannequin H' },
+  ];
+
+  private async loadCharacters(models: ModelLibrary, count: number): Promise<void> {
+    if (count <= 0) return; // reference de mesure : aucun personnage
+    await this.characterFactory.load(models);
+
+    const spots = TestRoomScene.CHARACTER_SPOTS.slice(0, count);
+    for (const [index, spot] of spots.entries()) {
+      const id = String.fromCharCode(65 + index); // A, B, C...
+      const character = this.characterFactory.create(`mannequin_${id}`, {
+        position: new THREE.Vector3(...spot.pos),
+        yaw: spot.yaw,
+        tint: spot.tint,
+      });
+
+      // Observable, exactement comme les autres objets de la piece.
+      // AUCUN dialogue : la Phase 5 s'en chargera.
+      const data: Interactable = {
+        id: `character_${id}`,
+        title: spot.label,
+        prompt: `Parler à ${spot.label}`,
+        info:
+          'Mannequin d\u2019essai. Il ne parle pas encore : le système de ' +
+          'dialogue viendra à l\u2019étape suivante.',
+      };
+      character.root.traverse((node) => {
+        if (node instanceof THREE.Mesh) node.userData.interactable = data;
+      });
+
+      this.scene.add(character.root);
+      this.characters.push(character);
+
+      // Un personnage occupe l'espace : boite de collision invisible,
+      // etroite, autour de son axe. La geometrie du personnage lui-meme
+      // ne doit JAMAIS servir aux collisions, elle est bien trop detaillee
+      // et elle bouge a chaque image.
+      this.addCharacterCollider(spot.pos);
+    }
+
+    console.info(`[personnages] ${this.characters.length} instance(s) placee(s)`);
+  }
+
+  /** Cylindre de collision invisible autour d'un personnage. */
+  private addCharacterCollider(position: [number, number, number]): void {
+    const proxy = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.34, 0.34, 1.75, 10),
+      new THREE.MeshBasicMaterial(),
+    );
+    proxy.position.set(position[0], 1.75 / 2, position[2]);
+    proxy.visible = false;
+    proxy.userData.collision = true;
+    this.scene.add(proxy);
   }
 
   /** Fabrique une boite de collision invisible autour d'un objet. */

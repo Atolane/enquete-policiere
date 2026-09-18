@@ -17,6 +17,9 @@
    demande. C'est Game qui pilote.
    =================================================================== */
 
+import type * as THREE from 'three';
+import type { Character } from '../world/Character';
+
 export class Hud {
   private readonly lockPanel: HTMLDivElement;
   private readonly crosshair: HTMLDivElement;
@@ -25,6 +28,7 @@ export class Hud {
   private readonly infoTitle: HTMLParagraphElement;
   private readonly infoText: HTMLParagraphElement;
   private readonly debugLine: HTMLDivElement;
+  private readonly characterLine: HTMLDivElement;
   private readonly loadingScreen: HTMLDivElement;
   private readonly loadingBar: HTMLDivElement;
   private readonly loadingLabel: HTMLParagraphElement;
@@ -80,6 +84,10 @@ export class Hud {
     this.debugLine = document.createElement('div');
     this.debugLine.id = 'debug-line';
     layer.appendChild(this.debugLine);
+
+    this.characterLine = document.createElement('div');
+    this.characterLine.id = 'debug-characters';
+    layer.appendChild(this.characterLine);
 
     // Ecran de chargement : cree en dernier pour passer au-dessus du reste.
     this.loadingScreen = document.createElement('div');
@@ -169,6 +177,50 @@ export class Hud {
   /** Seul endroit qui decide si le viseur est visible. */
   private refreshCrosshair(): void {
     this.crosshair.classList.toggle('is-hidden', !this.locked || this.infoVisible);
+  }
+
+  /**
+   * Seconde ligne de controle : l'etat des personnages.
+   *
+   * Elle existe pour que le comportement soit MESURABLE et non pas
+   * seulement "visiblement correct" : etat courant, nombre d'animations
+   * en fondu, angle reel du regard et nombre de personnages animes.
+   * Elle disparaitra avec les autres reperes de developpement.
+   */
+  setCharacterDebug(
+    characters: readonly Character[],
+    eye: THREE.Vector3,
+    focused: Character | null = null,
+    costMs = 0,
+  ): void {
+    if (characters.length === 0) {
+      this.characterLine.textContent = '';
+      return;
+    }
+
+    // On detaille celui qu'on regarde, a defaut le plus proche.
+    let nearest = characters[0];
+    let best = Infinity;
+    let animated = 0;
+    for (const character of characters) {
+      if (character.animated) animated++;
+      const d = character.root.position.distanceTo(eye);
+      if (d < best) {
+        best = d;
+        nearest = character;
+      }
+    }
+
+    if (focused) nearest = focused;
+
+    this.characterLine.textContent =
+      `pnj ${nearest.id} | ${nearest.state}` +
+      ` | clip ${nearest.currentClip} t=${nearest.currentTime.toFixed(2)}` +
+      ` | fondu ${nearest.blending}` +
+      ` | tete ${nearest.lookAngleDeg.toFixed(0)}° (rot ${nearest.appliedYawDeg.toFixed(0)}°)` +
+      ` | animes ${animated}/${characters.length}` +
+      ` | dist ${best.toFixed(1)} m` +
+      ` | cpu ${costMs.toFixed(2)} ms`;
   }
 
   /** Ligne de controle technique. Temporaire. */
