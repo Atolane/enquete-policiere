@@ -40,6 +40,7 @@ export class Hud {
      On memorise donc l'etat, et une seule methode decide de l'affichage. */
   private locked = false;
   private infoVisible = false;
+  private inDialogue = false;
 
   constructor() {
     const layer = document.querySelector<HTMLDivElement>('#ui-layer');
@@ -137,10 +138,17 @@ export class Hud {
     if (target) target.textContent = message;
   }
 
-  /** Affiche ou masque le panneau d'accueil selon l'etat du Pointer Lock. */
-  setLocked(locked: boolean): void {
+  /**
+   * Affiche ou masque le panneau d'accueil selon l'etat du Pointer Lock.
+   *
+   * @param inDialogue pendant un entretien la souris est libre A DESSEIN :
+   *                   le panneau « cliquer pour prendre le controle »
+   *                   n'a alors aucun sens et masquerait les questions.
+   */
+  setLocked(locked: boolean, inDialogue = false): void {
     this.locked = locked;
-    this.lockPanel.classList.toggle('is-hidden', locked);
+    this.inDialogue = inDialogue;
+    this.lockPanel.classList.toggle('is-hidden', locked || inDialogue);
     this.refreshCrosshair();
   }
 
@@ -176,7 +184,10 @@ export class Hud {
 
   /** Seul endroit qui decide si le viseur est visible. */
   private refreshCrosshair(): void {
-    this.crosshair.classList.toggle('is-hidden', !this.locked || this.infoVisible);
+    this.crosshair.classList.toggle(
+      'is-hidden',
+      !this.locked || this.infoVisible || this.inDialogue,
+    );
   }
 
   /**
@@ -214,20 +225,31 @@ export class Hud {
     if (focused) nearest = focused;
 
     this.characterLine.textContent =
-      `pnj ${nearest.id} | ${nearest.state}` +
+      `pnj ${nearest.id} | ${nearest.state}/${nearest.mood}` +
       ` | clip ${nearest.currentClip} t=${nearest.currentTime.toFixed(2)}` +
       ` | fondu ${nearest.blending}` +
-      ` | tete ${nearest.lookAngleDeg.toFixed(0)}° (rot ${nearest.appliedYawDeg.toFixed(0)}°)` +
+      ` | tete ${nearest.lookAngleDeg.toFixed(0)}° (rot ${nearest.appliedYawDeg.toFixed(0)}°${nearest.gazeAverted ? ' fuyant' : ''})` +
       ` | animes ${animated}/${characters.length}` +
       ` | dist ${best.toFixed(1)} m` +
       ` | cpu ${costMs.toFixed(2)} ms`;
   }
 
-  /** Ligne de controle technique. Temporaire. */
-  setDebug(fps: number, x: number, y: number, z: number, grounded: boolean): void {
+  /**
+   * Ligne de controle technique. Temporaire.
+   *
+   * Le CAP (orientation du regard) y figure parce que la camera n'est pas
+   * toujours pilotee par le joueur : un cadrage d'entretien la deplace.
+   * Sans cette valeur affichee, impossible de savoir ou l'on regarde
+   * reellement -- ni de le verifier automatiquement.
+   */
+  setDebug(
+    fps: number, x: number, y: number, z: number, grounded: boolean,
+    yawDeg = 0, pitchDeg = 0,
+  ): void {
     this.debugLine.textContent =
       `${fps.toFixed(0)} img/s` +
       ` | x ${x.toFixed(2)}  y ${y.toFixed(2)}  z ${z.toFixed(2)}` +
+      ` | cap ${yawDeg.toFixed(1)}° ${pitchDeg.toFixed(1)}°` +
       ` | ${grounded ? 'au sol' : 'en l’air'}`;
   }
 }

@@ -50,6 +50,9 @@ export class TestRoomScene {
   /** Personnages presents, dans l'ordre de placement. */
   readonly characters: Character[] = [];
 
+  /** Qui incarne qui : identifiant d'affaire -> instance 3D. */
+  readonly suspects = new Map<string, Character>();
+
   private readonly characterFactory = new CharacterFactory();
 
   /** Position d'apparition du joueur (aux pieds). */
@@ -280,6 +283,7 @@ export class TestRoomScene {
     ashtray.position.set(-4.5, 0.81, 3.5);
     this.makeExaminable(ashtray, {
       id: 'ashtray',
+      clueId: 'ashtray', // <- devient un indice une fois examine
       title: 'Cendrier',
       prompt: 'Examiner le cendrier',
       info:
@@ -296,6 +300,7 @@ export class TestRoomScene {
     document.rotation.y = 0.3;
     this.makeExaminable(document, {
       id: 'report',
+      clueId: 'report',
       title: 'Rapport dactylographié',
       prompt: 'Lire le document',
       info:
@@ -318,6 +323,7 @@ export class TestRoomScene {
     phoneBase.add(handset); // l'ecouteur suit le socle
     this.makeExaminable(phoneBase, {
       id: 'phone',
+      clueId: 'phone',
       title: 'Téléphone',
       prompt: 'Examiner le téléphone',
       info:
@@ -364,6 +370,7 @@ export class TestRoomScene {
     // maillages, puisque c'est le maillage touche par le rayon qui compte.
     const data: Interactable = {
       id: 'press_camera',
+      clueId: 'press_camera',
       title: 'Appareil photo de presse',
       prompt: 'Examiner l\u2019appareil photo',
       info:
@@ -427,22 +434,33 @@ export class TestRoomScene {
         tint: spot.tint,
       });
 
-      // Observable, exactement comme les autres objets de la piece.
-      // AUCUN dialogue : la Phase 5 s'en chargera.
-      const data: Interactable = {
-        id: `character_${id}`,
-        title: spot.label,
-        prompt: `Parler à ${spot.label}`,
-        info:
-          'Mannequin d\u2019essai. Il ne parle pas encore : le système de ' +
-          'dialogue viendra à l\u2019étape suivante.',
-      };
+      /* Le premier mannequin porte le suspect de TEST (jetable, voir
+         src/data/demo/greco.ts). Les autres restent muets : ils ne
+         servent qu'aux mesures de performance. */
+      const isSuspect = index === 0;
+      const data: Interactable = isSuspect
+        ? {
+            id: 'character_greco',
+            title: 'Salvatore Greco',
+            prompt: 'Interroger Salvatore Greco',
+            info: '',
+            characterId: 'greco', // identifiant DANS L'AFFAIRE
+          }
+        : {
+            id: `character_${id}`,
+            title: spot.label,
+            prompt: `Observer ${spot.label}`,
+            info:
+              'Mannequin d\u2019essai. Il ne participe pas à l\u2019enquête : ' +
+              'il ne sert qu\u2019aux mesures de performance.',
+          };
       character.root.traverse((node) => {
         if (node instanceof THREE.Mesh) node.userData.interactable = data;
       });
 
       this.scene.add(character.root);
       this.characters.push(character);
+      if (isSuspect) this.suspects.set('greco', character);
 
       // Un personnage occupe l'espace : boite de collision invisible,
       // etroite, autour de son axe. La geometrie du personnage lui-meme

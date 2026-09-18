@@ -14,6 +14,7 @@
    =================================================================== */
 
 import * as THREE from 'three';
+import type { Beat, Mood } from '../data/types';
 
 /** Les etats possibles. Chacun correspond a une animation. */
 export type CharacterState = 'idle' | 'attentive' | 'agreeing' | 'denying';
@@ -28,6 +29,40 @@ const STATE_CLIPS: Record<CharacterState, string> = {
 
 /** Duree du fondu entre deux etats, en secondes. */
 const FADE = 0.35;
+
+/* --- Gestes ponctuels (Phase 5A) ---------------------------------
+   Un geste est joue UNE SEULE FOIS par-dessus la posture, puis la
+   posture reprend en fondu. */
+const BEAT_CLIPS: Record<Beat, string> = {
+  agree: 'Yes',
+  deny: 'No',
+  dismiss: 'Wave',
+  think: 'Standing',
+};
+const BEAT_FADE = 0.15;
+
+/* --- Humeurs (Phase 5A) -------------------------------------------
+   L'humeur ne change pas de clip -- le mannequin d'essai n'en a pas
+   assez. Elle s'exprime par la VITESSE de l'animation et surtout par
+   le COMPORTEMENT DU REGARD, qui fonctionne avec n'importe quel modele
+   et reste volontairement ambigu : un innocent aussi detourne les yeux.
+
+   look    : duree pendant laquelle il vous tient le regard
+   away    : duree pendant laquelle il le rompt
+   offset  : de combien il regarde a cote pendant la rupture, en metres */
+interface MoodBehaviour {
+  timeScale: number;
+  look: number;
+  away: number;
+  offset: number;
+}
+
+const MOOD_BEHAVIOUR: Record<Mood, MoodBehaviour> = {
+  neutral: { timeScale: 1.0, look: Infinity, away: 0, offset: 0 },
+  guarded: { timeScale: 0.9, look: 2.4, away: 1.2, offset: 0.9 },
+  nervous: { timeScale: 1.15, look: 1.3, away: 0.9, offset: 1.4 },
+  hostile: { timeScale: 1.0, look: Infinity, away: 0, offset: 0 },
+};
 
 /** Limites de rotation de la tete, en degres. Au-dela, le cou se devisse. */
 const MAX_YAW = 70;
@@ -54,6 +89,10 @@ export class Character {
   lookAngleDeg = 180;
   /** Rotation horizontale reellement appliquee a la tete, en degres. */
   appliedYawDeg = 0;
+  /** Humeur courante, et vitesse d'animation qui en decoule. */
+  mood: Mood = 'neutral';
+  /** Le personnage detourne-t-il le regard en ce moment ? */
+  gazeAverted = false;
   /** Nom du clip en cours, et son avancement en secondes.
       Le temps qui avance est la preuve la plus directe qu'une animation
       tourne : c'est une valeur, pas une impression. */
@@ -71,6 +110,13 @@ export class Character {
   private readonly modelForward: THREE.Vector3;
 
   private target: THREE.Vector3 | null = null;
+  /** Geste en cours : action jouee une fois, et temps restant. */
+  private readonly beatActions = new Map<Beat, THREE.AnimationAction>();
+  private beatRemaining = 0;
+  /** Minuterie du comportement de regard. */
+  private gazeTimer = 0;
+  private readonly gazeOffset = new THREE.Vector3();
+  private readonly gazeTarget = new THREE.Vector3();
   /** Direction reellement visee, qui glisse doucement vers la cible. */
   private readonly aimDirection = new THREE.Vector3(0, 0, 1);
   private aimInitialised = false;
@@ -105,6 +151,24 @@ export class Character {
         continue;
       }
       this.actions.set(state as CharacterState, this.mixer.clipAction(clip));
+    }
+
+    /* Les gestes utilisent une COPIE du clip, jamais le clip original.
+       Raison : Three.js renvoie le meme objet d'animation pour un meme
+       clip. Or un geste peut reposer sur le meme clip qu'une posture
+       ("think" et la posture attentive partagent "Standing"). Sans
+       copie, regler le geste en lecture unique transformait AUSSI la
+       posture de base en animation a usage unique : elle se figeait
+       apres un cycle, et le personnage devenait une statue. */
+    for (const [beat, clipName] of Object.entries(BEAT_CLIPS)) {
+      const clip = clips.get(clipName);
+      if (!clip) continue;
+      const beatClip = clip.clone();
+      beatClip.name = `beat_${beat}`;
+      const action = this.mixer.clipAction(beatClip);
+      action.setLoop(THREE.LoopOnce, 1);
+      action.clampWhenFinished = false;
+      this.beatActions.set(beat as Beat, action);
     }
 
     this.head = findHeadBone(root);
@@ -150,6 +214,41 @@ export class Character {
   }
 
   /**
+   * Change d'humeur. Agit sur la vitesse d'animation et sur la facon
+   * dont le personnage soutient -- ou fuit -- le regard.
+   */
+  setMood(mood: Mood): void {
+    if (mood === this.mood) return;
+    this.mood = mood;
+    this.gazeTimer = 0;
+    this.gazeAverted = false;
+    this.mixer.timeScale = MOOD_BEHAVIOUR[mood].timeScale;
+  }
+
+  /**
+   * Joue un geste ponctuel par-dessus la posture.
+   *
+   * La posture de base est mise en retrait le temps du geste, puis
+   * revient en fondu. Sans cela, le geste serait ecrase par l'animation
+   * de fond des la premiere image.
+   */
+  playBeat(beat: Beat): void {
+    const action = this.beatActions.get(beat);
+    if (!action) return;
+
+    action.reset().setEffectiveTimeScale(1).setEffectiveWeight(1).fadeIn(BEAT_FADE).play();
+    this.current?.fadeOut(BEAT_FADE);
+
+    this.beatRemaining = action.getClip().duration;
+    this.currentClip = BEAT_CLIPS[beat];
+  }
+
+  /** Un geste est-il en cours ? */
+  get isPlayingBeat(): boolean {
+    return this.beatRemaining > 0;
+  }
+
+  /**
    * @param active false quand le personnage n'est pas visible : on saute
    *               alors tout le calcul d'animation, qui est la partie
    *               couteuse (deformation du maillage par le squelette).
@@ -162,6 +261,20 @@ export class Character {
     }
 
     this.mixer.update(deltaTime);
+
+    // Fin d'un geste ponctuel : on relance la posture de base en fondu.
+    if (this.beatRemaining > 0) {
+      this.beatRemaining -= deltaTime;
+      if (this.beatRemaining <= 0) {
+        this.beatRemaining = 0;
+        for (const action of this.beatActions.values()) action.fadeOut(BEAT_FADE);
+        if (this.current) {
+          this.current.reset().setEffectiveWeight(1).fadeIn(BEAT_FADE).play();
+          this.currentClip = this.current.getClip().name;
+        }
+      }
+    }
+
     if (this.current) this.currentTime = this.current.time;
 
     // Combien d'animations se melangent reellement en ce moment ?
@@ -169,6 +282,8 @@ export class Character {
     for (const action of this.actions.values()) {
       if (action.isRunning() && action.getEffectiveWeight() > 0.01) this.blending++;
     }
+
+    this.updateGaze(deltaTime);
 
     // IMPORTANT : le regard s'applique APRES mixer.update(). Dans l'autre
     // ordre, l'animation ecraserait la rotation de la tete a chaque image
@@ -184,6 +299,43 @@ export class Character {
   // -----------------------------------------------------------------
   // Le regard
   // -----------------------------------------------------------------
+
+  /**
+   * Fait alterner contact visuel et rupture, selon l'humeur.
+   *
+   * C'est le principal moyen d'expression du personnage, et il est
+   * volontairement AMBIGU : detourner les yeux peut trahir un mensonge,
+   * ou simplement de la gene, du chagrin, de la lassitude. Le jeu ne
+   * tranche jamais -- c'est au joueur de se faire une opinion.
+   */
+  private updateGaze(deltaTime: number): void {
+    const behaviour = MOOD_BEHAVIOUR[this.mood];
+
+    if (!this.target || behaviour.away <= 0) {
+      this.gazeAverted = false;
+      this.gazeTimer = 0;
+      return;
+    }
+
+    this.gazeTimer -= deltaTime;
+    if (this.gazeTimer <= 0) {
+      this.gazeAverted = !this.gazeAverted;
+      this.gazeTimer = this.gazeAverted ? behaviour.away : behaviour.look;
+
+      if (this.gazeAverted) {
+        // On regarde a cote, d'un cote ou de l'autre, et un peu plus bas.
+        const side = Math.random() < 0.5 ? -1 : 1;
+        this.gazeOffset.set(side * behaviour.offset, -0.35, 0);
+      }
+    }
+  }
+
+  /** Point reellement vise : la cible, ou un point a cote si le regard fuit. */
+  private effectiveTarget(): THREE.Vector3 | null {
+    if (!this.target) return null;
+    if (!this.gazeAverted) return this.target;
+    return this.gazeTarget.copy(this.target).add(this.gazeOffset);
+  }
 
   /**
    * Mesure, au repos, quel axe local de la tete pointe vers l'avant.
@@ -230,11 +382,12 @@ export class Character {
 
     // Direction souhaitee : vers la cible si elle existe (bornee par
     // rapport au corps), sinon simplement la pose animee.
-    if (this.target) {
+    const aimAt = this.effectiveTarget();
+    if (aimAt) {
       const bodyForward = this.tmpVecD.copy(this.modelForward)
         .applyQuaternion(this.root.getWorldQuaternion(this.tmpQuatB))
         .normalize();
-      const desired = this.tmpVecC.subVectors(this.target, headPos);
+      const desired = this.tmpVecC.subVectors(aimAt, headPos);
       if (desired.lengthSq() > 1e-8) {
         desired.normalize();
         this.computeClampedAim(bodyForward, desired);

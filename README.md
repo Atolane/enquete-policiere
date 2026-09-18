@@ -3,13 +3,14 @@
 Petit jeu d'enquête policière 3D en vue FPS, jouable dans un navigateur.
 États-Unis, 1948. Ambiance film noir. Une seule affaire de meurtre.
 
-**État actuel : Phase 4 — personnages animés.**
+**État actuel : Phase 5A — système d'interrogatoire.**
 Une pièce de test en primitives (graybox), une caméra à la première personne,
 le déplacement ZQSD/WASD, la gravité, de vraies collisions (murs, escalier,
 rampe, passage étroit) l'observation d'objets (viseur, libellé,
 fiche d'information), le chargement de vrais modèles GLB et des **personnages
-humanoïdes animés** qui suivent le joueur du regard. Pas encore de dialogues
-ni d'enquête.
+humanoïdes animés** qui suivent le joueur du regard, et un **système
+d'interrogatoire** : questions conditionnelles, réponses jouées, gestes et
+humeurs. Pas encore de présentation d'indices ni de carnet.
 
 ### Commandes en jeu
 
@@ -19,7 +20,9 @@ ni d'enquête.
 | `Z Q S D` / `W A S D` / flèches | se déplacer |
 | souris | regarder autour de soi |
 | `Maj` | marcher plus vite |
-| clic | examiner l'objet visé / fermer la fiche |
+| clic | examiner l'objet visé / interroger un personnage |
+| `1`-`9` | choisir une question pendant un entretien |
+| `Échap` | terminer l'entretien |
 | `Échap` | libérer la souris |
 
 Adresse de réglage : `?personnages=N` (0 à 8) change le nombre de mannequins,
@@ -159,6 +162,42 @@ révèle immédiatement un asset mal préparé.
 
 Tout modèle ajouté doit être crédité dans `public/models/CREDITS.md`.
 
+## Écrire un interrogatoire
+
+Les dialogues sont des **données**, pas du code. Un personnage possède une
+**liste plate de questions** ; chacune porte ses conditions d'apparition, sa
+réponse et ses effets. Ajouter du contenu, c'est ajouter une entrée au tableau.
+
+```
+src/data/types.ts        le format (questions, déclarations, conditions, effets)
+src/data/demo/greco.ts   un suspect de TEST, jetable
+src/game/dialogue.ts     le moteur : questions disponibles, effets, validateur
+src/game/GameState.ts    l'état de l'enquête (aucun import de Three.js)
+```
+
+Les six comportements d'un suspect ne demandent **aucun code spécifique** :
+
+| Comportement | Comment on l'écrit |
+|---|---|
+| dire la vérité | une déclaration `truth: 'true'` |
+| mentir | une déclaration `truth: 'false'` — visuellement identique |
+| cacher | la question a un `requires` non satisfait : elle n'apparaît pas |
+| refuser | la question répond mais n'a ni `records` ni `effects` |
+| esquiver | des répliques hors sujet + `beat: 'dismiss'` + `setMood` |
+| changer de version | *(Phase 5B)* une déclaration avec `supersedes` |
+
+### La règle qui ne se négocie pas
+
+**Le jeu ne dit jamais qu'un personnage ment.** Le champ `truth` est interne :
+l'interface ne reçoit jamais une déclaration complète, seulement une projection
+qui ne contient pas ce champ. Une déclaration vraie et une déclaration fausse
+produisent exactement le même affichage. C'est vérifié par des tests
+automatisés, et c'est un critère de validation à chaque phase.
+
+Corollaire d'écriture : **les innocents aussi doivent avoir des tells.** Si les
+menteurs étaient nerveux et les honnêtes gens tranquilles, le joueur résoudrait
+l'affaire en lisant les attitudes, sans réfléchir.
+
 ## Organisation du code
 
 ```
@@ -169,7 +208,7 @@ src/
   player/        le détective : caméra FPS, déplacement, collisions
   interaction/   regarder et cliquer sur les objets
   world/         les lieux en 3D, les personnages, les effets (pluie, brouillard)
-  game/          les règles de l'enquête (aucun code 3D ici)
+  game/          les règles de l'enquête (aucun code 3D ici) : état, dialogues
   data/          le contenu de l'affaire : indices, témoignages, dialogues
   ui/            l'interface en HTML/CSS : carnet, dialogues, menus
   audio/         gestion du son
@@ -201,7 +240,8 @@ réellement besoin.
 - [x] **Phase 2C** — viseur, objets observables, fiche d'information
 - [x] **Phase 3** — pipeline d'assets et chargement de modèles GLB
 - [x] **Phase 4** — personnages animés : squelette, fondus, regard, coût mesuré
-- [ ] Phase 5 — dialogues
+- [x] **Phase 5A** — interrogatoires : moteur de dialogue, gestes, humeurs
+- [ ] **Phase 5B** — présenter un indice, réactions, changement de version
 - [ ] Phase 6 — indices et état de l'enquête
 - [ ] Phase 7 — carnet de police et sauvegarde
 - [ ] Phase 8 — tranche verticale jouable

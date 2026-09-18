@@ -167,6 +167,11 @@ export class Input {
       this.onClick?.();
       return;
     }
+
+    /* Commandes suspendues : on ne reprend PAS la souris. Sans cela,
+       cliquer a cote du panneau d'interrogatoire ferait disparaitre le
+       curseur, et le joueur ne pourrait plus choisir sa question. */
+    if (!this.enabled) return;
     // Le Pointer Lock exige un geste explicite de l'utilisateur : impossible
     // de capturer la souris au chargement de la page.
     try {

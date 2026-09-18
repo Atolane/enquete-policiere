@@ -31,6 +31,12 @@ import { InteractionSystem } from './interaction/InteractionSystem';
 import { TestRoomScene } from './world/scenes/TestRoomScene';
 import { buildCollisionGeometry, triangleCount } from './world/collision';
 import { Hud } from './ui/Hud';
+import { DialogueUI } from './ui/DialogueUI';
+import { GameState } from './game/GameState';
+import { DialogueEngine, validateCase } from './game/dialogue';
+import { Interrogation } from './game/Interrogation';
+import { demoCase } from './data/demo/greco';
+import type { Character } from './world/Character';
 
 /**
  * Mode actif du jeu. Un seul a la fois.
@@ -41,7 +47,7 @@ import { Hud } from './ui/Hud';
  * camera en cliquant dans un menu. Les modes 'dialogue' et 'notebook'
  * viendront s'ajouter ici plus tard.
  */
-type GameMode = 'exploring' | 'examining';
+type GameMode = 'exploring' | 'examining' | 'dialogue';
 
 export class Game {
   private readonly engine: Engine;
@@ -51,6 +57,14 @@ export class Game {
   private readonly models = new ModelLibrary();
   private readonly interaction: InteractionSystem;
   private readonly hud: Hud;
+
+  /* --- Enquete (Phase 5A) --- */
+  private readonly state = new GameState();
+  private readonly dialogue: DialogueEngine;
+  private readonly dialogueUI = new DialogueUI();
+  private readonly interrogation: Interrogation;
+  /** Personnage interroge : Game cesse de piloter son etat et son regard. */
+  private interviewed: Character | null = null;
 
   /* Les collisions ne peuvent etre construites qu'APRES le chargement des
      modeles, puisqu'un decor importe apporte sa propre geometrie solide.
@@ -75,7 +89,9 @@ export class Game {
   private readonly viewDirection = new THREE.Vector3();
   private readonly toCharacter = new THREE.Vector3();
   /** Personnage que le joueur regarde, sinon null. */
-  private focused: import('./world/Character').Character | null = null;
+  private focused: Character | null = null;
+  /** Cadrage de l'entretien : point vise par la camera. */
+  private readonly framingTarget = new THREE.Vector3();
   /** Temps processeur passe a animer les personnages, en millisecondes.
       Mesure independante de la carte graphique : c'est le cout reel du
       squelette et du melange d'animations. */
@@ -102,14 +118,35 @@ export class Game {
 
     this.player.spawn(this.room.spawn, this.room.spawnYaw);
 
+    /* Enquete. Le validateur s'execute au demarrage : une faute de frappe
+       dans les donnees est signalee tout de suite, pas en cours de partie. */
+    this.dialogue = new DialogueEngine(demoCase, this.state);
+    const problems = validateCase(demoCase);
+    if (problems.length > 0) {
+      console.warn(`[enquete] ${problems.length} probleme(s) dans les donnees :`);
+      for (const problem of problems) console.warn(`  - ${problem}`);
+    } else {
+      console.info(
+        `[enquete] donnees validees : ${demoCase.topics.length} questions, ` +
+          `${demoCase.statements.length} declarations`,
+      );
+    }
+    this.interrogation = new Interrogation(this.dialogue, this.state, this.dialogueUI);
+    this.dialogueUI.onLeave = () => this.endInterrogation();
+
     this.interaction = new InteractionSystem(this.room.scene, this.engine.camera);
     this.interaction.onTargetChange = (target) => this.hud.setTarget(target?.prompt ?? null);
-    this.interaction.onInteract = (target) => this.openInfo(target.title, target.info);
+    this.interaction.onInteract = (target) => {
+      // Un personnage s'interroge, un objet s'examine.
+      if (target.characterId) this.startInterrogation(target.characterId);
+      else this.examine(target);
+    };
 
     this.input.onLockChange = (locked) => {
-      this.hud.setLocked(locked);
-      // Perdre la souris (Echap, Alt+Tab) revient toujours a l'etat neutre.
-      if (!locked) this.closeInfo();
+      // Pendant un entretien, la souris est LIBRE a dessein : le panneau
+      // d'accueil ne doit pas s'afficher par-dessus.
+      this.hud.setLocked(locked, this.mode === 'dialogue');
+      if (!locked && this.mode === 'examining') this.closeInfo();
     };
     this.input.onClick = () => this.handleClick();
 
@@ -152,6 +189,7 @@ export class Game {
   stop(): void {
     this.engine.stop();
     this.input.dispose();
+    this.dialogueUI.dispose();
     for (const character of this.room.characters) character.dispose();
     this.collider?.dispose();
     this.models.dispose();
@@ -163,11 +201,78 @@ export class Game {
 
   /** Le clic signifie "agir" ou "fermer", selon le mode en cours. */
   private handleClick(): void {
-    if (this.mode === 'examining') {
-      this.closeInfo();
-    } else {
-      this.interaction.activate();
+    if (this.mode === 'examining') this.closeInfo();
+    else if (this.mode === 'exploring') this.interaction.activate();
+    // En mode dialogue la souris est libre : les clics vont au panneau.
+  }
+
+  // --- Interrogatoire (Phase 5A) ------------------------------------
+
+  private startInterrogation(caseId: string): void {
+    const character = this.room.suspects.get(caseId);
+    if (!character) {
+      console.warn(`[enquete] aucun modele n'incarne "${caseId}"`);
+      return;
     }
+    if (!this.interrogation.start(caseId, character)) return;
+
+    this.mode = 'dialogue';
+    this.interviewed = character;
+    this.interaction.clear();
+    this.input.setEnabled(false);
+
+    /* On libere la souris : choisir une question au curseur est plus
+       naturel qu'a l'aveugle. La sortie est PROGRAMMEE et non declenchee
+       par Echap, ce qui evite le delai d'une seconde impose par Chrome
+       avant de pouvoir reprendre le controle. */
+    document.exitPointerLock();
+    this.hud.setLocked(false, true);
+  }
+
+  private endInterrogation(): void {
+    if (this.mode !== 'dialogue') return;
+    this.interrogation.stop();
+    this.mode = 'exploring';
+    this.interviewed = null;
+    this.input.setEnabled(true);
+    this.hud.setLocked(this.input.isLocked(), false);
+  }
+
+  /**
+   * Oriente doucement la camera vers le visage du personnage.
+   *
+   * On agit sur les angles du joueur plutot que sur la camera elle-meme :
+   * Player les applique ensuite comme d'habitude. Aucun systeme ne se
+   * bat avec un autre, et le joueur retrouve exactement sa vue a la fin.
+   */
+  private updateFraming(deltaTime: number): void {
+    if (!this.interviewed) return;
+
+    this.framingTarget.copy(this.interviewed.root.position);
+    this.framingTarget.y += 1.45; // hauteur du visage
+    this.player.getEyePosition(this.eyePosition);
+
+    const dx = this.framingTarget.x - this.eyePosition.x;
+    const dy = this.framingTarget.y - this.eyePosition.y;
+    const dz = this.framingTarget.z - this.eyePosition.z;
+    const targetYaw = Math.atan2(-dx, -dz);
+    const targetPitch = Math.atan2(dy, Math.hypot(dx, dz));
+
+    const k = 1 - Math.exp(-6 * deltaTime);
+    const look = this.player.look;
+    // Ecart ramene dans [-PI, PI] : sans cela la camera ferait le tour
+    // du monde a l'envers quand le personnage est derriere le joueur.
+    const delta = Math.atan2(Math.sin(targetYaw - look.yaw), Math.cos(targetYaw - look.yaw));
+    look.yaw += delta * k;
+    look.pitch += (targetPitch - look.pitch) * k;
+  }
+
+  /** Examen d'un objet : affiche sa fiche, et l'enregistre s'il est un indice. */
+  private examine(target: { title: string; info: string; clueId?: string }): void {
+    if (target.clueId && this.state.discoverClue(target.clueId)) {
+      console.info(`[enquete] indice decouvert : ${target.clueId}`);
+    }
+    this.openInfo(target.title, target.info);
   }
 
   private openInfo(title: string, text: string): void {
@@ -225,10 +330,18 @@ export class Game {
       // Le personnage suit le joueur des yeux quand il est proche, et
       // passe en posture attentive. C'est le seul "comportement" de cette
       // phase : aucun dialogue, aucune logique d'enquete.
-      character.lookAt(near ? this.eyePosition : null);
-      character.setState(near ? 'attentive' : 'idle');
+      /* Le personnage interroge est pilote par l'entretien : il regarde
+         toujours le joueur et reste en posture d'entretien, quelle que
+         soit la distance. Game ne lui impose plus rien. */
+      if (character === this.interviewed) {
+        character.lookAt(this.eyePosition);
+        character.setState('attentive');
+      } else {
+        character.lookAt(near ? this.eyePosition : null);
+        character.setState(near ? 'attentive' : 'idle');
+      }
 
-      character.update(deltaTime, visible);
+      character.update(deltaTime, visible || character === this.interviewed);
 
       this.toCharacter.copy(character.root.position).setY(this.eyePosition.y)
         .sub(this.eyePosition);
@@ -247,7 +360,9 @@ export class Game {
 
   private update(deltaTime: number): void {
     this.player.update(deltaTime, this.input, this.engine.camera);
+    if (this.mode === 'dialogue') this.updateFraming(deltaTime);
     this.updateCharacters(deltaTime);
+    this.interrogation.update(deltaTime);
 
     // On ne cherche une cible que si le joueur peut reellement agir.
     if (this.mode === 'exploring' && this.input.isLocked()) {
@@ -257,7 +372,11 @@ export class Game {
     // Moyenne glissante : sans lissage, le chiffre serait illisible.
     if (deltaTime > 0) this.fps += (1 / deltaTime - this.fps) * 0.1;
     const p = this.player.position;
-    this.hud.setDebug(this.fps, p.x, p.y, p.z, this.player.grounded);
+    this.hud.setDebug(
+      this.fps, p.x, p.y, p.z, this.player.grounded,
+      THREE.MathUtils.radToDeg(this.player.look.yaw),
+      THREE.MathUtils.radToDeg(this.player.look.pitch),
+    );
     this.hud.setCharacterDebug(
       this.room.characters, this.eyePosition, this.focused, this.characterCostMs);
 

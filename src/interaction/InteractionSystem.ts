@@ -50,6 +50,19 @@ export interface Interactable {
   prompt: string;
   /** Texte affiche au clic. */
   info: string;
+
+  /**
+   * Si present, viser cet objet propose d'INTERROGER ce personnage au
+   * lieu de l'examiner. C'est ce champ qui distingue les deux verbes.
+   */
+  characterId?: string;
+
+  /**
+   * Si present, examiner cet objet l'enregistre comme INDICE dans
+   * l'etat de l'enquete. Un objet peut etre observable sans etre un
+   * indice : tout n'est pas une preuve.
+   */
+  clueId?: string;
 }
 
 /** Portee maximale du regard, en metres. */
