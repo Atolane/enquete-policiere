@@ -125,3 +125,19 @@
   text-transform: uppercase;
   color: #56524b;
 }
+
+/* --- Phase 5B : presenter un element ---------------------------
+   Les indices et les declarations partagent EXACTEMENT le meme
+   habillage. Rien, dans l'affichage d'un element, ne depend de ce
+   qu'il vaut : c'est au joueur d'en juger. */
+
+.dialogue-choice.is-action .choice-label {
+  color: #f0c98a;
+}
+
+.dialogue-empty {
+  padding: 9px 10px;
+  font-size: 14px;
+  font-style: italic;
+  color: #6f6a60;
+}

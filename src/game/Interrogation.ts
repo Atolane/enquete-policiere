@@ -11,8 +11,8 @@
    ici que viendra se brancher la presentation d'indices en Phase 5B.
    =================================================================== */
 
-import type { DialogueLine, DialogueTopic } from '../data/types';
-import type { DialogueEngine } from './dialogue';
+import type { DialogueLine, DialogueTopic, Evidence } from '../data/types';
+import type { DialogueEngine, EvidenceOption } from './dialogue';
 import type { GameState } from './GameState';
 import type { Character } from '../world/Character';
 import type { DialogueUI } from '../ui/DialogueUI';
@@ -34,6 +34,8 @@ export class Interrogation {
 
   private topicQueue: DialogueLine[] = [];
   private pendingTopic: DialogueTopic | null = null;
+  /** Element en cours de presentation, en attente d'enregistrement. */
+  private pendingEvidence: Evidence | null = null;
   private step: Step | null = null;
 
   constructor(
@@ -43,6 +45,9 @@ export class Interrogation {
   ) {
     this.ui.onChoose = (topic) => this.ask(topic);
     this.ui.onAdvance = () => this.advance();
+    this.ui.onOpenEvidence = () => this.showEvidence();
+    this.ui.onPresent = (option) => this.present(option);
+    this.ui.onBack = () => this.showChoices();
   }
 
   get isActive(): boolean {
@@ -73,6 +78,7 @@ export class Interrogation {
     this.caseId = null;
     this.character = null;
     this.pendingTopic = null;
+    this.pendingEvidence = null;
     this.topicQueue = [];
     this.step = null;
     this.ui.close();
@@ -93,7 +99,33 @@ export class Interrogation {
 
   private ask(topic: DialogueTopic): void {
     this.pendingTopic = topic;
+    this.pendingEvidence = null;
     this.topicQueue = [...topic.lines];
+    this.advance();
+  }
+
+  // --- Presenter un element (Phase 5B) -------------------------------
+
+  private showEvidence(): void {
+    if (!this.caseId) return;
+    this.step = { kind: 'choices' };
+    this.ui.showEvidence(this.engine.availableEvidence(this.caseId));
+  }
+
+  /**
+   * L'inspecteur brandit quelque chose.
+   *
+   * Le moteur renvoie toujours une reaction : celle qui est ecrite, ou
+   * la reponse generique du personnage. Rien, dans le deroule, ne
+   * distingue les deux -- c'est au joueur de juger si ce qu'il vient
+   * d'obtenir vaut quelque chose.
+   */
+  private present(option: EvidenceOption): void {
+    if (!this.caseId) return;
+    const reaction = this.engine.react(this.caseId, option.evidence);
+    this.pendingTopic = null;
+    this.pendingEvidence = option.evidence;
+    this.topicQueue = [...reaction.lines];
     this.advance();
   }
 
@@ -138,8 +170,18 @@ export class Interrogation {
    */
   private finishTopic(): void {
     const topic = this.pendingTopic;
+    const evidence = this.pendingEvidence;
     this.pendingTopic = null;
+    this.pendingEvidence = null;
     this.step = null;
+
+    if (evidence && this.caseId) {
+      this.engine.applyEvidence(this.caseId, evidence);
+      this.refreshMood();
+      this.showChoices();
+      return;
+    }
+
     if (!topic) {
       this.showChoices();
       return;
@@ -147,10 +189,7 @@ export class Interrogation {
 
     this.engine.applyTopic(topic);
 
-    // L'humeur decidee par les donnees est reportee sur le modele 3D.
-    if (this.caseId && this.character) {
-      this.character.setMood(this.state.moodOf(this.caseId, this.character.mood));
-    }
+    this.refreshMood();
 
     if (topic.effects?.endInterrogation) {
       this.ui.onLeave?.();
@@ -163,6 +202,15 @@ export class Interrogation {
   private showChoices(): void {
     if (!this.caseId) return;
     this.step = { kind: 'choices' };
-    this.ui.showChoices(this.engine.availableTopics(this.caseId));
+    this.ui.showChoices(
+      this.engine.availableTopics(this.caseId),
+      this.engine.availableEvidence(this.caseId).length > 0,
+    );
+  }
+
+  /** Reporte sur le modele 3D l'humeur decidee par les donnees. */
+  private refreshMood(): void {
+    if (!this.caseId || !this.character) return;
+    this.character.setMood(this.state.moodOf(this.caseId, this.character.mood));
   }
 }

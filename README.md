@@ -3,14 +3,16 @@
 Petit jeu d'enquête policière 3D en vue FPS, jouable dans un navigateur.
 États-Unis, 1948. Ambiance film noir. Une seule affaire de meurtre.
 
-**État actuel : Phase 5A — système d'interrogatoire.**
+**État actuel : Phase 5B — présenter une preuve.**
 Une pièce de test en primitives (graybox), une caméra à la première personne,
 le déplacement ZQSD/WASD, la gravité, de vraies collisions (murs, escalier,
 rampe, passage étroit) l'observation d'objets (viseur, libellé,
 fiche d'information), le chargement de vrais modèles GLB et des **personnages
-humanoïdes animés** qui suivent le joueur du regard, et un **système
-d'interrogatoire** : questions conditionnelles, réponses jouées, gestes et
-humeurs. Pas encore de présentation d'indices ni de carnet.
+humanoïdes animés** qui suivent le joueur du regard, un **système
+d'interrogatoire** (questions conditionnelles, réponses jouées, gestes et
+humeurs) et la **présentation d'éléments** : montrer un indice ramassé ou une
+déclaration déjà entendue, et voir le personnage réagir — parfois changer de
+version. Pas encore de carnet de police ni d'affaire définitive.
 
 ### Commandes en jeu
 
@@ -21,8 +23,9 @@ humeurs. Pas encore de présentation d'indices ni de carnet.
 | souris | regarder autour de soi |
 | `Maj` | marcher plus vite |
 | clic | examiner l'objet visé / interroger un personnage |
-| `1`-`9` | choisir une question pendant un entretien |
-| `Échap` | terminer l'entretien |
+| `1`-`9` | choisir une question, ou un élément à présenter |
+| `P` | présenter un élément pendant un entretien |
+| `Échap` | revenir aux questions, puis terminer l'entretien |
 | `Échap` | libérer la souris |
 
 Adresse de réglage : `?personnages=N` (0 à 8) change le nombre de mannequins,
@@ -184,7 +187,7 @@ Les six comportements d'un suspect ne demandent **aucun code spécifique** :
 | cacher | la question a un `requires` non satisfait : elle n'apparaît pas |
 | refuser | la question répond mais n'a ni `records` ni `effects` |
 | esquiver | des répliques hors sujet + `beat: 'dismiss'` + `setMood` |
-| changer de version | *(Phase 5B)* une déclaration avec `supersedes` |
+| changer de version | une déclaration avec `supersedes` |
 
 ### La règle qui ne se négocie pas
 
@@ -197,6 +200,45 @@ automatisés, et c'est un critère de validation à chaque phase.
 Corollaire d'écriture : **les innocents aussi doivent avoir des tells.** Si les
 menteurs étaient nerveux et les honnêtes gens tranquilles, le joueur résoudrait
 l'affaire en lisant les attitudes, sans réfléchir.
+
+### Présenter un élément
+
+Pendant un entretien, le joueur peut **montrer** quelque chose au personnage :
+un indice qu'il a examiné, ou une déclaration qu'il a déjà entendue. Les deux
+sont traités de la même façon par le moteur (`Evidence`), et **affichés de la
+même façon** à l'écran.
+
+```
+clues      dans CaseData : le catalogue des indices présentables (id + nom)
+reactions  dans CaseData : les réactions spécifiques, hors des questions
+```
+
+Une réaction spécifique s'écrit comme une question : elle vise un personnage,
+un `clue` **ou** un `statement`, peut porter un `requires`, et produit des
+`lines`, des `records` et des `effects`.
+
+```ts
+{
+  character: 'greco',
+  clue: 'ashtray',
+  requires: { heard: ['greco_nobody_stayed'] },   // seulement après son démenti
+  lines: [...],
+  records: ['greco_admits_stayed'],               // sa nouvelle version
+  effects: { unlock: ['greco_who_came_back'] },
+}
+```
+
+**Il y a toujours une réponse.** Si aucune réaction ne correspond, le
+personnage joue la `defaultReaction` de sa fiche — jamais un silence, jamais un
+message d'interface. Le coût d'une preuve brandie à tort est alors volontairement
+**léger, plafonné et réversible** : l'humeur passe de `neutral` à `guarded`, une
+seule fois, et **aucune question ne disparaît**. L'enquête ne peut pas se
+bloquer.
+
+**Les deux versions sont conservées.** Quand une déclaration en remplace une
+autre (`supersedes`), l'ancienne reste dans l'état de l'enquête et reste
+présentable. Le jeu ne dit pas laquelle est la bonne ; c'est la contradiction,
+pas le moteur, qui informe le joueur.
 
 ## Organisation du code
 
@@ -241,7 +283,7 @@ réellement besoin.
 - [x] **Phase 3** — pipeline d'assets et chargement de modèles GLB
 - [x] **Phase 4** — personnages animés : squelette, fondus, regard, coût mesuré
 - [x] **Phase 5A** — interrogatoires : moteur de dialogue, gestes, humeurs
-- [ ] **Phase 5B** — présenter un indice, réactions, changement de version
+- [x] **Phase 5B** — présenter un indice, réactions, changement de version
 - [ ] Phase 6 — indices et état de l'enquête
 - [ ] Phase 7 — carnet de police et sauvegarde
 - [ ] Phase 8 — tranche verticale jouable

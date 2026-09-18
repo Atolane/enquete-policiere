@@ -15,6 +15,7 @@
    =================================================================== */
 
 import type { DialogueLine, DialogueTopic } from '../data/types';
+import type { EvidenceOption } from '../game/dialogue';
 
 /** Vitesse de l'effet de frappe, en signes par seconde. */
 const TYPING_SPEED = 55;
@@ -31,10 +32,17 @@ export class DialogueUI {
   onChoose: ((topic: DialogueTopic) => void) | null = null;
   /** Appele quand le joueur met fin a l'entretien. */
   onLeave: (() => void) | null = null;
+  /** Appele quand le joueur veut brandir quelque chose. */
+  onOpenEvidence: (() => void) | null = null;
+  /** Appele quand il a choisi l'element a presenter. */
+  onPresent: ((option: EvidenceOption) => void) | null = null;
+  /** Appele quand il renonce et revient aux questions. */
+  onBack: (() => void) | null = null;
   /** Appele quand le joueur avance dans les repliques. */
   onAdvance: (() => void) | null = null;
 
   private choices: DialogueTopic[] = [];
+  private evidence: EvidenceOption[] = [];
   private typing: { full: string; shown: number; elapsed: number } | null = null;
 
   constructor() {
@@ -89,6 +97,7 @@ export class DialogueUI {
     this.panel.classList.add('is-hidden');
     this.typing = null;
     this.choices = [];
+    this.evidence = [];
     this.choiceList.replaceChildren();
   }
 
@@ -96,6 +105,7 @@ export class DialogueUI {
   showLine(line: DialogueLine): void {
     this.choiceList.replaceChildren();
     this.choices = [];
+    this.evidence = [];
     this.lineBox.dataset.speaker = line.speaker === 'detective' ? 'detective' : 'character';
     this.lineBox.textContent = '';
     this.typing = { full: line.text, shown: 0, elapsed: 0 };
@@ -132,6 +142,7 @@ export class DialogueUI {
   showPause(): void {
     this.choiceList.replaceChildren();
     this.choices = [];
+    this.evidence = [];
     this.lineBox.dataset.speaker = 'character';
     this.lineBox.textContent = '…';
     this.typing = null;
@@ -139,11 +150,14 @@ export class DialogueUI {
   }
 
   /** Affiche la liste des questions disponibles. */
-  showChoices(topics: DialogueTopic[]): void {
+  showChoices(topics: DialogueTopic[], canPresent = false): void {
     this.choices = topics;
+    this.evidence = [];
     this.typing = null;
     this.lineBox.textContent = '';
-    this.hint.textContent = 'Touches 1 à 9 · Échap pour terminer';
+    this.hint.textContent = canPresent
+      ? 'Touches 1 à 9 · P pour présenter · Échap pour terminer'
+      : 'Touches 1 à 9 · Échap pour terminer';
 
     const list = document.createElement('div');
     list.className = 'dialogue-choice-list';
@@ -174,6 +188,25 @@ export class DialogueUI {
       list.appendChild(button);
     });
 
+    if (canPresent) {
+      const present = document.createElement('button');
+      present.type = 'button';
+      present.className = 'dialogue-choice is-action';
+      present.id = 'dialogue-present';
+      const presentKey = document.createElement('span');
+      presentKey.className = 'choice-key';
+      presentKey.textContent = 'P';
+      const presentLabel = document.createElement('span');
+      presentLabel.className = 'choice-label';
+      presentLabel.textContent = 'Présenter un élément';
+      present.append(presentKey, presentLabel);
+      present.addEventListener('click', (event) => {
+        event.stopPropagation();
+        this.onOpenEvidence?.();
+      });
+      list.appendChild(present);
+    }
+
     const leave = document.createElement('button');
     leave.type = 'button';
     leave.className = 'dialogue-choice is-leave';
@@ -194,13 +227,83 @@ export class DialogueUI {
     this.choiceList.replaceChildren(list);
   }
 
+  /**
+   * Affiche ce que l'inspecteur peut brandir.
+   *
+   * Le balisage est le MEME pour un indice et pour une declaration, et
+   * ne depend en rien de leur contenu : rien ici ne peut trahir ce qui
+   * est vrai ou faux.
+   */
+  showEvidence(options: EvidenceOption[]): void {
+    this.choices = [];
+    this.evidence = options;
+    this.typing = null;
+    this.lineBox.textContent = '';
+    this.hint.textContent = 'Touches 1 à 9 · Échap pour revenir';
+
+    const list = document.createElement('div');
+    list.className = 'dialogue-choice-list';
+
+    if (options.length === 0) {
+      const empty = document.createElement('p');
+      empty.className = 'dialogue-empty';
+      empty.textContent = "Vous n'avez rien à lui montrer pour l'instant.";
+      list.appendChild(empty);
+    }
+
+    options.forEach((option, index) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'dialogue-choice';
+      button.dataset.evidence = `${option.evidence.kind}:${option.evidence.id}`;
+
+      const key = document.createElement('span');
+      key.className = 'choice-key';
+      key.textContent = index < 9 ? String(index + 1) : '·';
+
+      const label = document.createElement('span');
+      label.className = 'choice-label';
+      label.textContent = option.label;
+
+      const kind = document.createElement('span');
+      kind.className = 'choice-category';
+      kind.textContent = option.alreadyShown ? `${option.kind} · déjà montré` : option.kind;
+
+      button.append(key, label, kind);
+      button.addEventListener('click', (event) => {
+        event.stopPropagation();
+        this.onPresent?.(option);
+      });
+      list.appendChild(button);
+    });
+
+    const back = document.createElement('button');
+    back.type = 'button';
+    back.className = 'dialogue-choice is-leave';
+    back.id = 'dialogue-back';
+    const backKey = document.createElement('span');
+    backKey.className = 'choice-key';
+    backKey.textContent = '\u2039';
+    const backLabel = document.createElement('span');
+    backLabel.className = 'choice-label';
+    backLabel.textContent = 'Revenir aux questions';
+    back.append(backKey, backLabel);
+    back.addEventListener('click', (event) => {
+      event.stopPropagation();
+      this.onBack?.();
+    });
+    list.appendChild(back);
+
+    this.choiceList.replaceChildren(list);
+  }
+
   dispose(): void {
     window.removeEventListener('keydown', this.handleKey);
   }
 
   private handlePanelClick = (): void => {
     // Un clic dans le panneau ne sert qu'a faire defiler les repliques.
-    if (this.choices.length > 0) return;
+    if (this.choices.length > 0 || this.evidence.length > 0) return;
     this.onAdvance?.();
   };
 
@@ -208,11 +311,31 @@ export class DialogueUI {
     if (!this.isOpen) return;
 
     if (event.code === 'Escape') {
-      this.onLeave?.();
+      // Depuis la liste des elements, Echap revient aux questions.
+      // Ailleurs, il met fin a l'entretien.
+      if (this.evidence.length > 0) this.onBack?.();
+      else this.onLeave?.();
+      return;
+    }
+
+    if (this.evidence.length > 0) {
+      const match = /^Digit([1-9])$/.exec(event.code);
+      if (match) {
+        const option = this.evidence[Number(match[1]) - 1];
+        if (option) {
+          event.preventDefault();
+          this.onPresent?.(option);
+        }
+      }
       return;
     }
 
     if (this.choices.length > 0) {
+      if (event.code === 'KeyP') {
+        event.preventDefault();
+        this.onOpenEvidence?.();
+        return;
+      }
       const match = /^Digit([1-9])$/.exec(event.code);
       if (match) {
         const topic = this.choices[Number(match[1]) - 1];

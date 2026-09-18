@@ -25,6 +25,8 @@ export interface InvestigationState {
   askedTopics: TopicId[];
   /** Questions rendues disponibles par un effet de dialogue. */
   unlockedTopics: TopicId[];
+  /** Elements deja presentes, sous la forme « personnage|kind:id ». */
+  presentedEvidence: string[];
   moods: Record<CharacterId, Mood>;
 }
 
@@ -36,6 +38,7 @@ export function createState(): InvestigationState {
     knownFacts: [],
     askedTopics: [],
     unlockedTopics: [],
+    presentedEvidence: [],
     moods: {},
   };
 }
@@ -79,6 +82,10 @@ export class GameState {
     return this.data.unlockedTopics.includes(id);
   }
 
+  hasPresented(character: CharacterId, key: string): boolean {
+    return this.data.presentedEvidence.includes(`${character}|${key}`);
+  }
+
   moodOf(character: CharacterId, fallback: Mood = 'neutral'): Mood {
     return this.data.moods[character] ?? fallback;
   }
@@ -105,6 +112,26 @@ export class GameState {
     return this.push('unlockedTopics', id);
   }
 
+  markPresented(character: CharacterId, key: string): boolean {
+    return this.push('presentedEvidence', `${character}|${key}`);
+  }
+
+  /**
+   * Ferme le personnage d'un cran : c'est le cout d'une preuve brandie
+   * a tort.
+   *
+   * Volontairement LEGER, PLAFONNE et REVERSIBLE :
+   *  - il ne va jamais au-dela de « guarded » ;
+   *  - il ne touche pas a une humeur deja chargee (nervous, hostile),
+   *    qui dit autre chose ;
+   *  - une reaction reussie repose ensuite l'humeur ou elle veut.
+   * Aucune question ne disparait, aucune piste ne se ferme : se tromper
+   * doit couter quelque chose, jamais bloquer l'enquete.
+   */
+  closeUp(character: CharacterId): void {
+    if (this.moodOf(character) === 'neutral') this.setMood(character, 'guarded');
+  }
+
   setMood(character: CharacterId, mood: Mood): void {
     if (this.data.moods[character] === mood) return;
     this.data.moods[character] = mood;
@@ -113,7 +140,8 @@ export class GameState {
 
   /** Ajoute un identifiant s'il n'y est pas deja. Renvoie true si ajoute. */
   private push(
-    key: 'discoveredClues' | 'heardStatements' | 'knownFacts' | 'askedTopics' | 'unlockedTopics',
+    key: 'discoveredClues' | 'heardStatements' | 'knownFacts' | 'askedTopics'
+      | 'unlockedTopics' | 'presentedEvidence',
     id: string,
   ): boolean {
     const list = this.data[key];

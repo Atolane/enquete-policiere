@@ -21,16 +21,41 @@
 import type {
   CaseData,
   CharacterId,
+  Condition,
+  ClueEntry,
+  DialogueLine,
   DialogueTopic,
+  Evidence,
+  EvidenceReaction,
   Statement,
   StatementView,
   TopicId,
 } from '../data/types';
+import { evidenceKey } from '../data/types';
 import type { GameState } from './GameState';
+
+/** Ce que l'interface affiche pour un element presentable. */
+export interface EvidenceOption {
+  evidence: Evidence;
+  /** Nom court affiche dans la liste. */
+  label: string;
+  /** Rubrique affichee a droite : « indice » ou « déclaration ». */
+  kind: string;
+  /** Deja presente a ce personnage ? On le signale, sans l'interdire. */
+  alreadyShown: boolean;
+}
+
+/** Ce qu'une presentation a produit. */
+export interface ReactionResult {
+  lines: DialogueLine[];
+  /** false quand c'est la reponse generique : l'element n'evoquait rien. */
+  specific: boolean;
+}
 
 export class DialogueEngine {
   private readonly topicsById = new Map<TopicId, DialogueTopic>();
   private readonly statementsById = new Map<string, Statement>();
+  private readonly cluesById = new Map<string, ClueEntry>();
 
   constructor(
     private readonly data: CaseData,
@@ -38,6 +63,7 @@ export class DialogueEngine {
   ) {
     for (const topic of data.topics) this.topicsById.set(topic.id, topic);
     for (const statement of data.statements) this.statementsById.set(statement.id, statement);
+    for (const clue of data.clues) this.cluesById.set(clue.id, clue);
   }
 
   characterSheet(id: CharacterId) {
@@ -65,17 +91,19 @@ export class DialogueEngine {
     // Une question debloquee par un effet passe outre ses conditions :
     // le personnage a lui-meme ouvert le sujet.
     if (this.state.isUnlocked(topic.id)) return true;
+    if (topic.hidden) return false;
+    if (!topic.requires) return true;
+    return this.meets(topic.requires, topic.speaker);
+  }
 
-    const need = topic.requires;
-    if (!need) return true;
-
+  /** Les conditions sont les memes pour les questions et les reactions. */
+  private meets(need: Condition, character: CharacterId): boolean {
     if (need.clues?.some((id) => !this.state.hasClue(id))) return false;
     if (need.facts?.some((id) => !this.state.hasFact(id))) return false;
     if (need.statementsHeard?.some((id) => !this.state.hasHeard(id))) return false;
     if (need.topicsAsked?.some((id) => !this.state.hasAsked(id))) return false;
     if (need.topicsNotAsked?.some((id) => this.state.hasAsked(id))) return false;
-    if (need.mood && !need.mood.includes(this.state.moodOf(topic.speaker))) return false;
-
+    if (need.mood && !need.mood.includes(this.state.moodOf(character))) return false;
     return true;
   }
 
@@ -107,6 +135,105 @@ export class DialogueEngine {
     if (effects.setMood) this.state.setMood(topic.speaker, effects.setMood);
   }
 
+  // -----------------------------------------------------------------
+  // Presenter un element (Phase 5B)
+  // -----------------------------------------------------------------
+
+  /**
+   * Ce que l'inspecteur peut brandir : les indices ramasses et les
+   * declarations deja entendues.
+   *
+   * Les elements deja montres a ce personnage restent proposes, mais
+   * signales : on n'interdit rien, on evite juste les redites.
+   */
+  availableEvidence(character: CharacterId): EvidenceOption[] {
+    const options: EvidenceOption[] = [];
+
+    for (const id of this.state.data.discoveredClues) {
+      const entry = this.cluesById.get(id);
+      if (!entry) {
+        console.warn(`[enquete] indice "${id}" absent du catalogue de l'affaire`);
+      }
+      const evidence: Evidence = { kind: 'clue', id };
+      options.push({
+        evidence,
+        label: entry?.name ?? id,
+        kind: 'indice',
+        alreadyShown: this.state.hasPresented(character, evidenceKey(evidence)),
+      });
+    }
+
+    for (const id of this.state.data.heardStatements) {
+      const statement = this.statementsById.get(id);
+      if (!statement) continue;
+      const evidence: Evidence = { kind: 'statement', id };
+      options.push({
+        evidence,
+        label: statement.text,
+        kind: 'déclaration',
+        alreadyShown: this.state.hasPresented(character, evidenceKey(evidence)),
+      });
+    }
+
+    return options;
+  }
+
+  /**
+   * Cherche la reaction du personnage a cet element.
+   *
+   * Renvoie toujours quelque chose : faute de reaction ecrite, c'est la
+   * reponse generique du personnage. Aucune combinaison n'est donc
+   * obligatoire a l'ecriture.
+   */
+  react(character: CharacterId, evidence: Evidence): ReactionResult {
+    const match = this.findReaction(character, evidence);
+    if (match) return { lines: match.lines, specific: true };
+
+    const sheet = this.characterSheet(character);
+    return { lines: sheet?.defaultReaction ?? [], specific: false };
+  }
+
+  /**
+   * Enregistre ce que la presentation a produit.
+   * A appeler quand la reaction a fini d'etre lue.
+   */
+  applyEvidence(character: CharacterId, evidence: Evidence): void {
+    this.state.markPresented(character, evidenceKey(evidence));
+
+    const match = this.findReaction(character, evidence);
+    if (!match) {
+      // Element sans rapport : il se ferme d'un cran. Leger, plafonne,
+      // reversible -- et jamais bloquant.
+      this.state.closeUp(character);
+      return;
+    }
+
+    for (const id of match.records ?? []) {
+      if (!this.statementsById.has(id)) {
+        console.warn(`[dialogue] declaration inconnue : ${id}`);
+        continue;
+      }
+      this.state.hearStatement(id);
+    }
+
+    const effects = match.effects;
+    if (!effects) return;
+    for (const id of effects.revealFacts ?? []) this.state.learnFact(id);
+    for (const id of effects.unlockTopics ?? []) this.state.unlockTopic(id);
+    if (effects.setMood) this.state.setMood(character, effects.setMood);
+  }
+
+  private findReaction(character: CharacterId, evidence: Evidence): EvidenceReaction | null {
+    for (const reaction of this.data.reactions) {
+      if (reaction.character !== character) continue;
+      if (evidence.kind === 'clue' && reaction.clue !== evidence.id) continue;
+      if (evidence.kind === 'statement' && reaction.statement !== evidence.id) continue;
+      if (reaction.requires && !this.meets(reaction.requires, character)) continue;
+      return reaction;
+    }
+    return null;
+  }
+
   /**
    * Les declarations entendues, telles que l'interface a le droit de les
    * voir. C'est LE point de passage oblige : le champ truth est retire
@@ -132,6 +259,7 @@ export function toView(statement: Statement): StatementView {
     text: statement.text,
     topic: statement.topic,
     claimedTime: statement.claimedTime,
+    replacesId: statement.supersedes,
   };
 }
 
@@ -186,6 +314,66 @@ export function validateCase(data: CaseData): string[] {
   for (const statement of data.statements) {
     if (!characters.has(statement.speaker)) {
       problems.push(`declaration ${statement.id} : personnage inconnu "${statement.speaker}"`);
+    }
+    if (statement.supersedes && !statements.has(statement.supersedes)) {
+      problems.push(
+        `declaration ${statement.id} : remplace une declaration inconnue ` +
+          `"${statement.supersedes}"`,
+      );
+    }
+    if (statement.supersedes === statement.id) {
+      problems.push(`declaration ${statement.id} : se remplace elle-meme`);
+    }
+  }
+
+  // --- Indices et reactions (Phase 5B) ---
+  const clues = new Set(data.clues.map((c) => c.id));
+  for (const character of data.characters) {
+    if (character.defaultReaction.length === 0) {
+      problems.push(
+        `${character.id} : aucune reponse generique. Sans elle, presenter un ` +
+          'element sans rapport ne produirait rien du tout.',
+      );
+    }
+  }
+  for (const [index, reaction] of data.reactions.entries()) {
+    const where = `reaction ${index + 1} (${reaction.character})`;
+    if (!characters.has(reaction.character)) {
+      problems.push(`${where} : personnage inconnu`);
+    }
+    if (!reaction.clue && !reaction.statement) {
+      problems.push(`${where} : ne designe ni indice ni declaration`);
+    }
+    if (reaction.clue && reaction.statement) {
+      problems.push(`${where} : designe a la fois un indice et une declaration`);
+    }
+    if (reaction.clue && !clues.has(reaction.clue)) {
+      problems.push(`${where} : indice inconnu "${reaction.clue}"`);
+    }
+    if (reaction.statement && !statements.has(reaction.statement)) {
+      problems.push(`${where} : declaration inconnue "${reaction.statement}"`);
+    }
+    for (const id of reaction.records ?? []) {
+      if (!statements.has(id)) problems.push(`${where} : declaration inconnue "${id}"`);
+    }
+    for (const id of reaction.effects?.unlockTopics ?? []) {
+      if (!topics.has(id)) problems.push(`${where} : question a debloquer inconnue "${id}"`);
+    }
+    if (reaction.lines.length === 0) problems.push(`${where} : aucune replique`);
+  }
+
+  /* Une question masquee qu'aucune reaction ni aucun effet n'ouvre
+     jamais est du contenu mort : le joueur ne la verra pas. */
+  const unlockable = new Set<string>();
+  for (const topic of data.topics) {
+    for (const id of topic.effects?.unlockTopics ?? []) unlockable.add(id);
+  }
+  for (const reaction of data.reactions) {
+    for (const id of reaction.effects?.unlockTopics ?? []) unlockable.add(id);
+  }
+  for (const topic of data.topics) {
+    if (topic.hidden && !unlockable.has(topic.id)) {
+      problems.push(`${topic.id} : masquee, mais rien ne la debloque jamais`);
     }
   }
 

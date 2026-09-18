@@ -61,6 +61,54 @@ export interface Condition {
   mood?: Mood[];
 }
 
+/* ===================================================================
+   CE QUE L'ON PEUT PRESENTER (Phase 5B)
+   =================================================================== */
+
+/**
+ * Un element brandi devant un personnage : un objet trouve sur place,
+ * ou les propres mots de quelqu'un.
+ */
+export type Evidence =
+  | { kind: 'clue'; id: ClueId }
+  | { kind: 'statement'; id: StatementId };
+
+/** Cle stable d'un element, pour la memoriser dans l'etat. */
+export function evidenceKey(evidence: Evidence): string {
+  return `${evidence.kind}:${evidence.id}`;
+}
+
+/** Fiche d'un indice : ce que le joueur lit quand il le choisit. */
+export interface ClueEntry {
+  id: ClueId;
+  /** Nom court, affiche dans la liste. Ex. : « Cendrier ». */
+  name: string;
+}
+
+/**
+ * Ce qu'un personnage repond quand on lui presente un element precis.
+ *
+ * Il n'est JAMAIS necessaire d'ecrire toutes les combinaisons : sans
+ * reaction specifique, le personnage sert sa reponse generique. Avec
+ * 3 suspects et 12 indices, on n'ecrira que la quinzaine qui compte.
+ */
+export interface EvidenceReaction {
+  character: CharacterId;
+  /** L'element concerne : un indice OU une declaration, pas les deux. */
+  clue?: ClueId;
+  statement?: StatementId;
+  /**
+   * Conditions pour que cette reaction se declenche. Sinon, c'est la
+   * reponse generique qui sert. On ne peut pas acculer quelqu'un sur un
+   * dementi qu'il n'a pas encore fait.
+   */
+  requires?: Condition;
+  lines: DialogueLine[];
+  /** Ce qu'il concede en reagissant. */
+  records?: StatementId[];
+  effects?: Effect;
+}
+
 /** Ce qu'une question change dans l'etat de l'enquete. */
 export interface Effect {
   revealFacts?: FactId[];
@@ -80,6 +128,12 @@ export interface DialogueTopic {
   /** Regroupement affiche dans la liste. */
   category: 'ouverture' | 'emploi du temps' | 'les gens' | 'les faits' | 'pression';
   requires?: Condition;
+  /**
+   * Question qui n'apparait JAMAIS d'elle-meme : seul un effet
+   * (unlockTopics) peut l'ouvrir. C'est le personnage qui a mis le
+   * sujet sur la table, pas l'inspecteur.
+   */
+  hidden?: boolean;
   lines: DialogueLine[];
   /** Ce que le personnage affirme en repondant. */
   records?: StatementId[];
@@ -112,7 +166,14 @@ export interface Statement {
   /** INTERNE. Jamais affiche, jamais transmis a l'interface. */
   truth: 'true' | 'false' | 'partial';
 
-  /** Phase 5B : cette declaration en remplace une precedente. */
+  /**
+   * Cette declaration en remplace une precedente : le personnage a
+   * change de version.
+   *
+   * Les DEUX versions restent dans l'etat de l'enquete. Le jeu ne dit
+   * pas laquelle est vraie -- il se contente de montrer qu'il y en a eu
+   * deux, ce que le joueur a de toute facon vu de ses yeux.
+   */
   supersedes?: StatementId;
 }
 
@@ -126,6 +187,14 @@ export interface StatementView {
   text: string;
   topic: string;
   claimedTime?: string;
+  /**
+   * Identifiant de la declaration que celle-ci remplace, s'il y a lieu.
+   *
+   * Ce n'est PAS une fuite : c'est un fait que le joueur a constate en
+   * direct, pas un jugement. On dit « il a dit autre chose ensuite »,
+   * jamais « la premiere version etait fausse ».
+   */
+  replacesId?: StatementId;
 }
 
 /** Fiche d'un personnage interrogeable. */
@@ -137,6 +206,11 @@ export interface CharacterSheet {
   role: string;
   /** Humeur au tout premier entretien. */
   initialMood: Mood;
+  /**
+   * Ce qu'il repond quand on lui presente quelque chose qui ne lui
+   * evoque rien. C'est ce repli qui rend l'ecriture soutenable.
+   */
+  defaultReaction: DialogueLine[];
 }
 
 /** Tout le contenu d'une affaire. */
@@ -144,4 +218,6 @@ export interface CaseData {
   characters: CharacterSheet[];
   topics: DialogueTopic[];
   statements: Statement[];
+  clues: ClueEntry[];
+  reactions: EvidenceReaction[];
 }

@@ -7,8 +7,9 @@
    Il n'appartient pas a l'affaire definitive, qui sera ecrite en
    Phase 9. Ne pas y investir de travail d'ecriture.
 
-   Il couvre volontairement les cinq comportements de la Phase 5A :
-     verite, mensonge, dissimulation, refus, esquive.
+   Il couvre volontairement les six comportements :
+     verite, mensonge, dissimulation, refus, esquive (Phase 5A),
+     et changement de version (Phase 5B).
 
    -------------------------------------------------------------------
    REGLE D'ECRITURE A NE JAMAIS OUBLIER
@@ -33,7 +34,29 @@ export const demoCase: CaseData = {
       name: 'Salvatore Greco',
       role: 'gérant du restaurant',
       initialMood: 'neutral',
+      /* Reponse de repli : elle sert des qu'on lui presente quelque
+         chose qui ne lui evoque rien. C'est elle qui rend l'ecriture
+         soutenable -- inutile d'ecrire toutes les combinaisons. */
+      defaultReaction: [
+        { speaker: GRECO, text: "Et alors ? Ça ne me dit rien.", beat: 'dismiss' },
+        {
+          speaker: GRECO,
+          text: "Vous me montrez des choses au hasard, inspecteur. "
+            + "Moi j'ai un restaurant à rouvrir demain.",
+        },
+      ],
     },
+  ],
+
+  /* --- Catalogue des indices ---------------------------------------
+     Ces identifiants correspondent aux objets observables places dans
+     la piece de test (voir TestRoomScene). Un indice ramasse sans fiche
+     ici s'affiche avec son identifiant brut et un avertissement. */
+  clues: [
+    { id: 'ashtray', name: 'Cendrier' },
+    { id: 'report', name: 'Rapport dactylographié' },
+    { id: 'phone', name: 'Téléphone décroché' },
+    { id: 'press_camera', name: 'Appareil photo de presse' },
   ],
 
   /* --- Les declarations -------------------------------------------
@@ -69,6 +92,35 @@ export const demoCase: CaseData = {
       topic: 'Emploi du temps',
       claimedTime: '21:35',
       truth: 'false',
+    },
+    /* --- Secondes versions (Phase 5B) -----------------------------
+       Elles remplacent une declaration precedente. Les DEUX restent
+       dans l'etat de l'enquete : le jeu montre qu'il y a eu deux
+       versions, il ne dit jamais laquelle est vraie. */
+    {
+      id: 'greco_admits_stayed',
+      speaker: GRECO,
+      text: "Bon. Quelqu'un est repassé après la fermeture. Cinq minutes, pas plus.",
+      topic: 'Emploi du temps',
+      claimedTime: '22:00',
+      truth: 'partial',
+      supersedes: 'greco_nobody_stayed',
+    },
+    {
+      id: 'greco_typewriter_shared',
+      speaker: GRECO,
+      text: "La machine servait aussi à d'autres. Je ne regardais pas ce qu'ils tapaient.",
+      topic: 'Les faits',
+      truth: 'true',
+      supersedes: 'greco_typewriter_his',
+    },
+    {
+      id: 'greco_closing_vague',
+      speaker: GRECO,
+      text: "Neuf heures et demie, dix heures. Je ne regarde pas la pendule tous les soirs.",
+      topic: 'Emploi du temps',
+      truth: 'partial',
+      supersedes: 'greco_closed_2130',
     },
     {
       id: 'greco_typewriter_his',
@@ -217,6 +269,27 @@ export const demoCase: CaseData = {
       records: ['greco_typewriter_his'],
     },
 
+    /* ---------- 9. Debloquee en le confrontant au cendrier --------- */
+    {
+      id: 'greco_who_came_back',
+      speaker: GRECO,
+      question: 'Qui est repassé, après la fermeture ?',
+      category: 'pression',
+      // Jamais disponible d'elle-meme : c'est la reaction au cendrier
+      // qui l'ouvre (effects.unlockTopics).
+      hidden: true,
+      lines: [
+        { speaker: GRECO, text: "Je ne dirai pas de nom.", beat: 'deny', pause: 0.9 },
+        {
+          speaker: GRECO,
+          text: "Vous ne savez pas comment ça marche, dans ce quartier. "
+            + "Moi si.",
+        },
+      ],
+      effects: { setMood: 'hostile' },
+      once: false,
+    },
+
     /* ---------- 8. RELANCE permanente : le joueur n'est jamais
            bloque devant un suspect muet ------------------------------- */
     {
@@ -228,6 +301,81 @@ export const demoCase: CaseData = {
         { speaker: GRECO, text: "Non, inspecteur. Rien qui vous serve." },
       ],
       once: false,
+    },
+  ],
+
+  /* =================================================================
+     REACTIONS AUX ELEMENTS PRESENTES (Phase 5B)
+
+     Seules les combinaisons qui comptent sont ecrites. Tout le reste
+     tombe sur la reponse generique du personnage, et lui coute un cran
+     d'ouverture -- assez pour qu'on ne montre pas tout a tout le monde,
+     jamais assez pour bloquer l'enquete.
+     ================================================================= */
+  reactions: [
+    /* --- Le cendrier : il CHANGE DE VERSION ------------------------
+       Mais seulement s'il a deja nie que quelqu'un soit reste. On
+       n'accule pas quelqu'un sur un dementi qu'il n'a pas encore fait :
+       avant cela, c'est la reponse generique qui sert. */
+    {
+      character: GRECO,
+      clue: 'ashtray',
+      requires: { statementsHeard: ['greco_nobody_stayed'] },
+      lines: [
+        { speaker: 'detective', text: "Ce mégot était encore tiède quand on l'a trouvé." },
+        { speaker: GRECO, text: "…", pause: 1.6, beat: 'think' },
+        {
+          speaker: GRECO,
+          text: "Bon. Quelqu'un est repassé. Cinq minutes, pas plus. "
+            + "Ça n'a rien à voir avec ce qui est arrivé à Bruno.",
+        },
+      ],
+      records: ['greco_admits_stayed'],
+      effects: { setMood: 'guarded', unlockTopics: ['greco_who_came_back'] },
+    },
+
+    /* --- Le rapport : seconde version, plus discrete ---------------- */
+    {
+      character: GRECO,
+      clue: 'report',
+      requires: { statementsHeard: ['greco_typewriter_his'] },
+      lines: [
+        {
+          speaker: 'detective',
+          text: "Ce rapport a été tapé sur votre machine. Et la signature a été découpée.",
+        },
+        {
+          speaker: GRECO,
+          text: "La machine servait aussi à d'autres.",
+          pause: 0.9,
+        },
+        {
+          speaker: GRECO,
+          text: "Je ne regardais pas ce qu'ils tapaient. On ne regarde pas, inspecteur.",
+          beat: 'dismiss',
+        },
+      ],
+      records: ['greco_typewriter_shared'],
+      effects: { setMood: 'guarded' },
+    },
+
+    /* --- Ses PROPRES MOTS, qu'on lui resert --------------------------
+       C'est ainsi que l'on confrontera plus tard les temoins entre eux :
+       le mecanisme est le meme, seul le locuteur change. */
+    {
+      character: GRECO,
+      statement: 'greco_closed_2130',
+      lines: [
+        { speaker: 'detective', text: "Vous avez dit : « j'ai fermé à neuf heures et demie »." },
+        { speaker: GRECO, text: "J'ai dit ça, oui.", beat: 'agree' },
+        {
+          speaker: GRECO,
+          text: "Neuf heures et demie, dix heures. Je ne regarde pas la pendule tous les soirs.",
+          pause: 0.7,
+        },
+      ],
+      records: ['greco_closing_vague'],
+      effects: { setMood: 'guarded' },
     },
   ],
 };
