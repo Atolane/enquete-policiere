@@ -27,7 +27,7 @@
    LA REGLE ABSOLUE S'APPLIQUE ICI AUSSI
    -------------------------------------------------------------------
    Le releve ne recoit que des donnees deja filtrees : des noms
-   d'indices et des StatementView. Il ne voit aucun Statement complet,
+   d'indices, des enonces de faits et des StatementView. Il ne voit aucun Statement complet,
    donc aucun champ "truth". Quand un personnage a change de version,
    les deux versions sont listees, et RIEN ne dit laquelle etait fausse.
    =================================================================== */
@@ -36,8 +36,7 @@
 export interface StateSnapshot {
   clues: { id: string; name: string }[];
   statements: { id: string; text: string; replacesId?: string }[];
-  /** Identifiants bruts : leurs libelles viendront avec la Phase 6B. */
-  facts: string[];
+  facts: { id: string; text: string }[];
   askedTopics: string[];
   moods: { character: string; mood: string }[];
 }
@@ -67,7 +66,10 @@ export class StateReport {
           s.replacesId ? `${s.id} (remplace ${s.replacesId}) — ${s.text}` : `${s.id} — ${s.text}`,
         ),
       ),
-      section(`Faits acquis (${snapshot.facts.length})`, snapshot.facts),
+      section(
+        `Faits acquis (${snapshot.facts.length})`,
+        snapshot.facts.map((f) => `${f.id} — ${f.text}`),
+      ),
       section(`Questions posées (${snapshot.askedTopics.length})`, snapshot.askedTopics),
       section(
         `Humeurs (${snapshot.moods.length})`,

@@ -27,6 +27,8 @@ import type {
   DialogueLine,
   DialogueTopic,
   Evidence,
+  FactEntry,
+  FactId,
   EvidenceReaction,
   Statement,
   StatementView,
@@ -57,6 +59,7 @@ export class DialogueEngine {
   private readonly topicsById = new Map<TopicId, DialogueTopic>();
   private readonly statementsById = new Map<string, Statement>();
   private readonly cluesById = new Map<string, ClueEntry>();
+  private readonly factsById = new Map<string, FactEntry>();
 
   constructor(
     private readonly data: CaseData,
@@ -65,6 +68,7 @@ export class DialogueEngine {
     for (const topic of data.topics) this.topicsById.set(topic.id, topic);
     for (const statement of data.statements) this.statementsById.set(statement.id, statement);
     for (const clue of data.clues) this.cluesById.set(clue.id, clue);
+    for (const fact of data.facts) this.factsById.set(fact.id, fact);
   }
 
   characterSheet(id: CharacterId) {
@@ -79,6 +83,16 @@ export class DialogueEngine {
    */
   clue(id: ClueId): ClueEntry | null {
     return this.cluesById.get(id) ?? null;
+  }
+
+  /**
+   * L'enonce d'un fait acquis.
+   *
+   * Comme pour un indice, le texte est ecrit une seule fois dans les
+   * donnees de l'affaire : rien ailleurs ne le recopie.
+   */
+  fact(id: FactId): FactEntry | null {
+    return this.factsById.get(id) ?? null;
   }
 
   /**
@@ -369,6 +383,46 @@ export function validateCase(data: CaseData): string[] {
       );
     }
   }
+  // --- Faits acquis (Phase 6B) ---
+  const facts = new Set(data.facts.map((f) => f.id));
+
+  const seenFacts = new Set<string>();
+  for (const fact of data.facts) {
+    if (seenFacts.has(fact.id)) problems.push(`fait en double : ${fact.id}`);
+    seenFacts.add(fact.id);
+    if (fact.text.trim() === '') problems.push(`fait ${fact.id} : aucun enonce`);
+    if (fact.topic.trim() === '') problems.push(`fait ${fact.id} : aucune rubrique`);
+  }
+
+  /* Les faits cites par les questions et par les reactions doivent
+     exister. Sans ce controle, un "revealFacts" mal orthographie
+     enregistre un fait fantome, et la question qui l'attend ne s'ouvre
+     JAMAIS -- sans le moindre message. C'est la faute la plus couteuse
+     du lot, parce qu'elle ressemble a un choix de conception. */
+  for (const topic of data.topics) {
+    checkFacts(`${topic.id}`, topic.effects?.revealFacts, topic.requires?.facts, facts, problems);
+  }
+  for (const [index, reaction] of data.reactions.entries()) {
+    const where = `reaction ${index + 1} (${reaction.character})`;
+    checkFacts(where, reaction.effects?.revealFacts, reaction.requires?.facts, facts, problems);
+  }
+
+  /* Un fait que rien ne revele jamais est du contenu mort, exactement
+     comme une question masquee que rien ne debloque. Pire : il bloque
+     silencieusement toutes les questions qui l'attendent. */
+  const revealable = new Set<string>();
+  for (const topic of data.topics) {
+    for (const id of topic.effects?.revealFacts ?? []) revealable.add(id);
+  }
+  for (const reaction of data.reactions) {
+    for (const id of reaction.effects?.revealFacts ?? []) revealable.add(id);
+  }
+  for (const fact of data.facts) {
+    if (!revealable.has(fact.id)) {
+      problems.push(`fait "${fact.id}" : rien ne le revele jamais`);
+    }
+  }
+
   for (const [index, reaction] of data.reactions.entries()) {
     const where = `reaction ${index + 1} (${reaction.character})`;
     if (!characters.has(reaction.character)) {
@@ -454,6 +508,28 @@ export function validateCase(data: CaseData): string[] {
  * @param idsInScene les identifiants d'indices reellement poses dans le
  *   decor, tels que la scene les rapporte.
  */
+/**
+ * Controle les faits cites par une question ou une reaction.
+ *
+ * Les deux sens comptent : celui qu'elle REVELE et celui qu'elle
+ * EXIGE. Un fait exige qui n'existe pas rend la question inatteignable ;
+ * un fait revele qui n'existe pas enregistre un fantome.
+ */
+function checkFacts(
+  where: string,
+  revealed: string[] | undefined,
+  required: string[] | undefined,
+  known: Set<string>,
+  problems: string[],
+): void {
+  for (const id of revealed ?? []) {
+    if (!known.has(id)) problems.push(`${where} : fait a reveler inconnu "${id}"`);
+  }
+  for (const id of required ?? []) {
+    if (!known.has(id)) problems.push(`${where} : fait requis inconnu "${id}"`);
+  }
+}
+
 export function validateSceneClues(data: CaseData, idsInScene: string[]): string[] {
   const problems: string[] = [];
   const catalogue = new Set(data.clues.map((c) => c.id));

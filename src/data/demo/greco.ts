@@ -321,8 +321,63 @@ export const demoCase: CaseData = {
       once: false,
     },
 
-    /* ---------- 8. RELANCE permanente : le joueur n'est jamais
-           bloque devant un suspect muet ------------------------------- */
+    /* ---------- 8. UN FAIT S'ETABLIT (Phase 6B)
+
+           L'inspecteur a vu le combine decroche, puis il a fait verifier
+           le registre de la ligne. Ce que cette question ajoute au
+           dossier n'est donc pas la parole de Greco : c'est un fait
+           etabli ailleurs, que son embarras ne change pas.
+
+           La question elle-meme attend le telephone : sans lui,
+           l'inspecteur n'aurait eu aucune raison de faire verifier. */
+    {
+      id: 'greco_the_call',
+      speaker: GRECO,
+      question: 'Un appel est parti de cette ligne après dix heures du soir.',
+      category: 'les faits',
+      requires: { clues: ['phone'] },
+      lines: [
+        { speaker: GRECO, text: "…Le téléphone.", pause: 1.1, beat: 'think' },
+        {
+          speaker: GRECO,
+          text: "Le combiné tombe tout seul, cet appareil. Il est vieux comme "
+            + "la maison.",
+          beat: 'dismiss',
+        },
+      ],
+      /* Aucun records : il ne concede rien. Le dossier, lui, retient
+         quelque chose -- et c'est toute la difference. */
+      effects: { revealFacts: ['call_after_closing'], setMood: 'guarded' },
+    },
+
+    /* ---------- 9. UN FAIT OUVRE UNE QUESTION (Phase 6B)
+
+           Celle-ci n'a aucun sens avant que l'appel soit etabli : on ne
+           demande pas a quelqu'un qui il a appele si rien ne dit qu'un
+           appel a eu lieu. Elle n'est pas « masquee » au sens de
+           hidden -- personne ne la debloque : c'est le dossier qui la
+           rend posable, tout seul. */
+    {
+      id: 'greco_who_did_you_call',
+      speaker: GRECO,
+      question: 'Qui avez-vous appelé après la fermeture ?',
+      category: 'pression',
+      requires: { facts: ['call_after_closing'] },
+      lines: [
+        { speaker: GRECO, text: "Personne.", pause: 0.9, beat: 'deny' },
+        {
+          speaker: GRECO,
+          text: "Vous croyez que je passe mes nuits au téléphone ? "
+            + "J'ai une salle à balayer, moi.",
+        },
+      ],
+      effects: { setMood: 'nervous' },
+      once: false, // on peut y revenir quand il sera moins sur de lui
+    },
+
+    /* ---------- 10. RELANCE PERMANENTE : le garde-fou. Le validateur
+           refuse un personnage qui n'en a pas. Sans elle, le joueur peut se
+           retrouver bloque devant un suspect muet ------------------------ */
     {
       id: 'greco_anything_else',
       speaker: GRECO,
@@ -332,6 +387,21 @@ export const demoCase: CaseData = {
         { speaker: GRECO, text: "Non, inspecteur. Rien qui vous serve." },
       ],
       once: false,
+    },
+  ],
+
+  /* --- Catalogue des faits acquis (Phase 6B) ------------------------
+     Un fait n'est ni un objet ramasse ni la parole d'un suspect : c'est
+     ce que l'enquete a etabli ailleurs. Celui-ci vient du registre de la
+     ligne telephonique, pas de Greco -- son embarras ne le change pas.
+
+     Il CONSTATE : on dit qu'un appel est parti, jamais que Greco a menti
+     sur l'heure. La conclusion appartient au joueur. */
+  facts: [
+    {
+      id: 'call_after_closing',
+      text: 'Un appel est parti de la ligne du restaurant après vingt-deux heures.',
+      topic: 'La soirée',
     },
   ],
 

@@ -137,8 +137,13 @@ export class Game {
       for (const problem of problems) console.warn(`  - ${problem}`);
     } else {
       console.info(
-        `[enquete] donnees validees : ${demoCase.topics.length} questions, ` +
-          `${demoCase.statements.length} declarations, ${demoCase.clues.length} indices`,
+        '[enquete] donnees validees : ' +
+          [
+            count(demoCase.topics.length, 'question'),
+            count(demoCase.statements.length, 'declaration'),
+            count(demoCase.clues.length, 'indice'),
+            count(demoCase.facts.length, 'fait'),
+          ].join(', '),
       );
     }
     this.interrogation = new Interrogation(this.dialogue, this.state, this.dialogueUI);
@@ -226,7 +231,10 @@ export class Game {
         text: view.text,
         replacesId: view.replacesId,
       })),
-      facts: [...data.knownFacts],
+      facts: data.knownFacts.map((id) => ({
+        id,
+        text: this.dialogue.fact(id)?.text ?? '(absent du catalogue)',
+      })),
       askedTopics: [...data.askedTopics],
       moods: Object.entries(data.moods).map(([character, mood]) => ({ character, mood })),
     });
@@ -486,4 +494,9 @@ export class Game {
 
     this.engine.render(this.room.scene);
   }
+}
+
+/** « 1 fait », « 4 indices » : un pluriel juste vaut le detour d'une ligne. */
+function count(n: number, word: string): string {
+  return `${n} ${word}${n > 1 ? 's' : ''}`;
 }

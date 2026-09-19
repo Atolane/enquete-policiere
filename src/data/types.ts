@@ -112,6 +112,39 @@ export interface ClueEntry {
 }
 
 /**
+ * Un FAIT ACQUIS : quelque chose que le dossier tient pour etabli.
+ *
+ * -------------------------------------------------------------------
+ * TROIS CHOSES BIEN DISTINCTES, ET IL FAUT LES GARDER DISTINCTES
+ * -------------------------------------------------------------------
+ *   un indice       un objet trouve sur place ;
+ *   une declaration les mots de quelqu'un -- qui peuvent etre faux ;
+ *   un fait         ce que l'enquete a etabli par ailleurs : une
+ *                   expertise, un registre, un voisin interroge.
+ *
+ * Un fait ne vient JAMAIS de la parole d'un suspect. Si un personnage
+ * l'affirme, c'est une declaration, pas un fait -- meme s'il dit vrai.
+ * Confondre les deux ferait du moteur le juge de la verite, et c'est
+ * exactement ce que ce jeu ne fait pas.
+ *
+ * A quoi cela sert, concretement : un fait ouvre des questions qui
+ * n'auraient aucun sens avant lui. On ne demande pas a quelqu'un qui il
+ * a appele tant que rien n'etablit qu'un appel a eu lieu.
+ *
+ * Regle d'ecriture, la meme que pour un indice : un fait CONSTATE.
+ * « Un appel est parti de cette ligne apres vingt-deux heures » et non
+ * « il a donc menti sur l'heure ». Noter qu'il n'y a ici aucun champ de
+ * verite : un fait n'a pas a etre vrai ou faux, il est etabli.
+ */
+export interface FactEntry {
+  id: FactId;
+  /** Enonce tel que l'interface l'affichera, a la troisieme personne. */
+  text: string;
+  /** Rubrique : « La soiree », « La victime »... */
+  topic: string;
+}
+
+/**
  * Ce qu'un personnage repond quand on lui presente un element precis.
  *
  * Il n'est JAMAIS necessaire d'ecrire toutes les combinaisons : sans
@@ -245,5 +278,6 @@ export interface CaseData {
   topics: DialogueTopic[];
   statements: Statement[];
   clues: ClueEntry[];
+  facts: FactEntry[];
   reactions: EvidenceReaction[];
 }

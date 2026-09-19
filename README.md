@@ -3,7 +3,7 @@
 Petit jeu d'enquête policière 3D en vue FPS, jouable dans un navigateur.
 États-Unis, 1948. Ambiance film noir. Une seule affaire de meurtre.
 
-**État actuel : Phase 6A — l'indice devient une donnée.**
+**État actuel : Phase 6B — les faits acquis.**
 Une pièce de test en primitives (graybox), une caméra à la première personne,
 le déplacement ZQSD/WASD, la gravité, de vraies collisions (murs, escalier,
 rampe, passage étroit) l'observation d'objets (viseur, libellé,
@@ -14,7 +14,9 @@ humeurs) et la **présentation d'éléments** : montrer un indice ramassé ou un
 déclaration déjà entendue, et voir le personnage réagir — parfois changer de
 version. Depuis la Phase 6A, **tout ce que le joueur lit d'un indice est écrit
 dans `src/data/`** : la scène 3D ne fournit plus que la géométrie et un
-identifiant. Pas encore de carnet de police ni d'affaire définitive.
+identifiant. Depuis la 6B, l'enquête tient aussi des **faits acquis** — ce
+qu'elle a établi par ailleurs, qui ouvre des questions n'ayant aucun sens
+avant eux. Pas encore de carnet de police ni d'affaire définitive.
 
 ### Commandes en jeu
 
@@ -230,6 +232,63 @@ puisqu'il n'appartient pas à l'affaire. À l'écran, la différence se voit : l
 fiche d'un indice porte la mention « Noté au dossier » (ou « Déjà au dossier »),
 celle d'un objet ordinaire n'en porte aucune.
 
+## Écrire un fait acquis
+
+Un **fait** est la troisième brique de l'enquête, et il faut la garder
+distincte des deux autres :
+
+| Brique | Ce que c'est | Peut être faux ? |
+|---|---|---|
+| un **indice** | un objet trouvé sur place | non, un objet ne ment pas |
+| une **déclaration** | les mots de quelqu'un | oui, et le jeu ne le dira jamais |
+| un **fait** | ce que l'enquête a établi par ailleurs | non, il est établi |
+
+Un fait ne vient **jamais** de la parole d'un suspect. Si un personnage
+l'affirme, c'est une déclaration — même s'il dit vrai. Confondre les deux
+ferait du moteur le juge de la vérité, et c'est exactement ce que ce jeu ne
+fait pas. Noter que `FactEntry` n'a **aucun champ de vérité**, là où
+`Statement` en a un, interne.
+
+```ts
+// src/data/demo/greco.ts
+facts: [
+  {
+    id: 'call_after_closing',
+    text: 'Un appel est parti de la ligne du restaurant après vingt-deux heures.',
+    topic: 'La soirée',
+  },
+]
+```
+
+À quoi cela sert : un fait **ouvre des questions qui n'auraient aucun sens
+avant lui**. On ne demande pas à quelqu'un qui il a appelé tant que rien
+n'établit qu'un appel a eu lieu.
+
+```ts
+// la question qui établit le fait
+{ id: 'greco_the_call',   requires: { clues: ['phone'] },
+  effects: { revealFacts: ['call_after_closing'] } }
+
+// celle qui l'attend
+{ id: 'greco_who_did_you_call', requires: { facts: ['call_after_closing'] } }
+```
+
+La différence avec `hidden` mérite d'être notée : une question `hidden`
+attend qu'un `unlockTopics` l'ouvre, c'est-à-dire qu'un personnage ait mis le
+sujet sur la table. Une question conditionnée par un fait s'ouvre toute
+seule, dès que le dossier tient ce qu'il faut.
+
+### Trois fautes que le validateur refuse
+
+| Faute | Pourquoi elle est coûteuse |
+|---|---|
+| `revealFacts` vers un fait inexistant | enregistre un fait fantôme |
+| `requires.facts` vers un fait inexistant | la question ne s'ouvre **jamais** |
+| un fait que rien ne révèle | contenu mort, et il bloque silencieusement tout ce qui l'attend |
+
+La deuxième est la pire : elle ne casse rien, elle ne dit rien, et elle
+ressemble à un choix de conception.
+
 ## Écrire un interrogatoire
 
 Les dialogues sont des **données**, pas du code. Un personnage possède une
@@ -350,7 +409,7 @@ réellement besoin.
 - [x] **Phase 5A** — interrogatoires : moteur de dialogue, gestes, humeurs
 - [x] **Phase 5B** — présenter un indice, réactions, changement de version
 - [x] **Phase 6A** — l'indice devient une donnée : source unique, contrôle croisé
-- [ ] Phase 6B — les faits acquis
+- [x] **Phase 6B** — les faits acquis : catalogue, validation, conditions
 - [ ] Phase 7 — carnet de police et sauvegarde
 - [ ] Phase 8 — tranche verticale jouable
 - [ ] Phases 9 à 16 — contenu, lieux, ambiance, audio, finition
