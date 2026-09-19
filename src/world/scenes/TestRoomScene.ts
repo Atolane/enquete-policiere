@@ -274,6 +274,26 @@ export class TestRoomScene {
     return mesh;
   }
 
+  /**
+   * Les indices que cette scene permet reellement de trouver.
+   *
+   * C'est le seul renseignement que le decor doit au reste du jeu pour
+   * que le controle croise du demarrage puisse avoir lieu. On renvoie un
+   * simple tableau de chaines : la frontiere tient, aucun objet Three.js
+   * ne passe vers game/.
+   *
+   * A appeler APRES load() : les modeles importes posent leurs propres
+   * objets observables, et l'appareil photo en est un.
+   */
+  clueIdsInScene(): string[] {
+    const found = new Set<string>();
+    this.scene.traverse((node) => {
+      const data = node.userData.interactable as Interactable | undefined;
+      if (data?.kind === 'clue') found.add(data.clueId);
+    });
+    return [...found];
+  }
+
   private buildExaminables(): void {
     // --- 1. Un cendrier, pose sur la table ---
     const ashtray = new THREE.Mesh(
@@ -281,15 +301,8 @@ export class TestRoomScene {
       this.materials.object,
     );
     ashtray.position.set(-4.5, 0.81, 3.5);
-    this.makeExaminable(ashtray, {
-      id: 'ashtray',
-      clueId: 'ashtray', // <- devient un indice une fois examine
-      title: 'Cendrier',
-      prompt: 'Examiner le cendrier',
-      info:
-        'Un mégot taché de rouge à lèvres, écrasé récemment. ' +
-        'Quelqu\u2019un est resté ici après la fermeture.',
-    });
+    // Rien d'autre que l'identifiant : les mots sont dans src/data/.
+    this.makeExaminable(ashtray, { kind: 'clue', clueId: 'ashtray' });
 
     // --- 2. Un document, pose sur la grande caisse ---
     const document = new THREE.Mesh(
@@ -298,15 +311,7 @@ export class TestRoomScene {
     );
     document.position.set(3.5, 1.41, -2.0);
     document.rotation.y = 0.3;
-    this.makeExaminable(document, {
-      id: 'report',
-      clueId: 'report',
-      title: 'Rapport dactylographié',
-      prompt: 'Lire le document',
-      info:
-        'Un rapport daté du 12 novembre 1948. ' +
-        'Le nom du signataire a été soigneusement découpé au rasoir.',
-    });
+    this.makeExaminable(document, { kind: 'clue', clueId: 'report' });
 
     // --- 3. Un telephone, sur la plateforme en haut de l'escalier ---
     const phoneBase = new THREE.Mesh(
@@ -321,15 +326,7 @@ export class TestRoomScene {
     handset.rotation.z = Math.PI / 2;
     handset.position.set(0, 0.08, 0);
     phoneBase.add(handset); // l'ecouteur suit le socle
-    this.makeExaminable(phoneBase, {
-      id: 'phone',
-      clueId: 'phone',
-      title: 'Téléphone',
-      prompt: 'Examiner le téléphone',
-      info:
-        'Le combiné est décroché et posé de travers. ' +
-        'La ligne est muette : quelqu\u2019un a appelé, puis n\u2019a pas raccroché.',
-    });
+    this.makeExaminable(phoneBase, { kind: 'clue', clueId: 'phone' });
     // L'ecouteur est un enfant : on lui donne les memes donnees pour que
     // viser l'un ou l'autre revienne au meme.
     handset.userData.interactable = phoneBase.userData.interactable;
@@ -368,15 +365,7 @@ export class TestRoomScene {
 
     // L'objet devient observable : on pose les donnees sur chacun de ses
     // maillages, puisque c'est le maillage touche par le rayon qui compte.
-    const data: Interactable = {
-      id: 'press_camera',
-      clueId: 'press_camera',
-      title: 'Appareil photo de presse',
-      prompt: 'Examiner l\u2019appareil photo',
-      info:
-        'Un appareil à soufflet monté sur trépied, du modèle qu\u2019utilisent ' +
-        'les reporters de faits divers. Le magasin est vide : les plaques ont été retirées.',
-    };
+    const data: Interactable = { kind: 'clue', clueId: 'press_camera' };
     root.traverse((node) => {
       if (node instanceof THREE.Mesh) node.userData.interactable = data;
     });
@@ -440,14 +429,16 @@ export class TestRoomScene {
       const isSuspect = index === 0;
       const data: Interactable = isSuspect
         ? {
-            id: 'character_greco',
+            kind: 'character',
+            characterId: 'greco', // identifiant DANS L'AFFAIRE
             title: 'Salvatore Greco',
             prompt: 'Interroger Salvatore Greco',
-            info: '',
-            characterId: 'greco', // identifiant DANS L'AFFAIRE
           }
         : {
-            id: `character_${id}`,
+            /* Un mannequin de mesure n'appartient pas a l'affaire : il
+               porte donc son propre texte, il n'a rien a faire dans le
+               catalogue des indices. */
+            kind: 'prop',
             title: spot.label,
             prompt: `Observer ${spot.label}`,
             info:

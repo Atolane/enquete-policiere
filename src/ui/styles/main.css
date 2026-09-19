@@ -202,6 +202,22 @@ body {
   color: #ddd6c6;
 }
 
+/* Mention d'enregistrement (Phase 6A). Discrete a dessein : elle
+   informe, elle ne felicite pas. Un liseret rappelle le dossier. */
+.info-note {
+  margin-top: 14px;
+  padding-left: 10px;
+  border-left: 2px solid #6b5a3c;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #a08d68;
+}
+
+.info-note.is-hidden {
+  display: none;
+}
+
 .info-hint {
   margin-top: 16px;
   font-size: 11px;
@@ -282,4 +298,62 @@ body {
   color: #8b7f96;
   background: rgba(7, 9, 13, 0.55);
   border-left: 2px solid #4a3f52;
+}
+
+/* ===============================================================
+   PHASE 6A — releve d'etat (?etat=1)
+
+   Instrument de controle, pas le carnet. Deliberement sobre et
+   surtout TOTALEMENT inerte : pointer-events none, aucun ecouteur
+   de clavier. Il ne doit jamais voler un clic au jeu.
+   =============================================================== */
+#state-report {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  max-width: 340px;
+  max-height: calc(100vh - 28px);
+  overflow: hidden;
+  padding: 12px 14px;
+  background: rgba(7, 9, 13, 0.82);
+  border: 1px solid #2a2f38;
+  border-radius: 3px;
+  font-family: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+  font-size: 11px;
+  line-height: 1.5;
+  color: #c9c2b2;
+  pointer-events: none;
+}
+
+.state-block {
+  margin-bottom: 10px;
+}
+
+.state-block:last-child {
+  margin-bottom: 0;
+}
+
+.state-heading {
+  color: #f0c98a;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-bottom: 3px;
+}
+
+.state-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.state-list li {
+  padding-left: 9px;
+  border-left: 1px solid #3a4150;
+  margin-bottom: 2px;
+  overflow-wrap: anywhere;
+}
+
+.state-empty {
+  color: #6f6a60;
+  padding-left: 9px;
 }

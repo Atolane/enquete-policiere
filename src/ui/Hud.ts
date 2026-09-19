@@ -27,6 +27,7 @@ export class Hud {
   private readonly infoPanel: HTMLDivElement;
   private readonly infoTitle: HTMLParagraphElement;
   private readonly infoText: HTMLParagraphElement;
+  private readonly infoNote: HTMLParagraphElement;
   private readonly debugLine: HTMLDivElement;
   private readonly characterLine: HTMLDivElement;
   private readonly loadingScreen: HTMLDivElement;
@@ -76,10 +77,16 @@ export class Hud {
     this.infoTitle.className = 'info-title';
     this.infoText = document.createElement('p');
     this.infoText.className = 'info-text';
+    /* Mention d'enregistrement (Phase 6A) : elle ne s'affiche que pour un
+       objet qui est un indice. Un objet ordinaire n'en porte pas, et
+       c'est ainsi que le joueur distingue les deux. */
+    this.infoNote = document.createElement('p');
+    this.infoNote.className = 'info-note';
+    this.infoNote.classList.add('is-hidden');
     const infoHint = document.createElement('p');
     infoHint.className = 'info-hint';
     infoHint.textContent = 'Clic ou Échap pour fermer';
-    this.infoPanel.append(this.infoTitle, this.infoText, infoHint);
+    this.infoPanel.append(this.infoTitle, this.infoText, this.infoNote, infoHint);
     layer.appendChild(this.infoPanel);
 
     this.debugLine = document.createElement('div');
@@ -162,9 +169,15 @@ export class Hud {
     this.promptLine.classList.toggle('is-hidden', prompt === null || this.infoVisible);
   }
 
-  showInfo(title: string, text: string): void {
+  /**
+   * @param note mention d'enregistrement, ou null pour un objet qui
+   *   n'est pas un indice.
+   */
+  showInfo(title: string, text: string, note: string | null = null): void {
     this.infoTitle.textContent = title;
     this.infoText.textContent = text;
+    this.infoNote.textContent = note ?? '';
+    this.infoNote.classList.toggle('is-hidden', note === null);
     this.infoVisible = true;
     this.infoPanel.classList.remove('is-hidden');
     // Pendant la lecture, ni viseur ni libelle : ils distrairaient.

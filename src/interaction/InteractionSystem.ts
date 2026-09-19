@@ -11,12 +11,13 @@
    touche est la cible du joueur.
 
    On regarde ensuite si cet objet porte des donnees d'interaction :
-       mesh.userData.interactable = { id, title, prompt, info }
+       mesh.userData.interactable = { kind: 'clue', clueId: 'ashtray' }
 
    Le systeme ne sait RIEN de l'enquete : il ne connait ni les indices,
-   ni les suspects. Il se contente de signaler "le joueur vise ceci" et
-   "le joueur a clique dessus". C'est le jeu qui decidera plus tard ce
-   que cela signifie.
+   ni les suspects. Il transporte un identifiant sans savoir ce qu'il
+   designe. Il se contente de signaler "le joueur vise ceci" et "le
+   joueur a clique dessus" ; c'est Game.ts qui decide ce que cela
+   signifie et qui va chercher les mots dans le catalogue.
 
    -------------------------------------------------------------------
    POURQUOI LE PREMIER OBJET TOUCHE, ET PAS "LE PREMIER OBJET
@@ -40,30 +41,31 @@
 
 import * as THREE from 'three';
 
-/** Donnees portees par un objet observable. */
-export interface Interactable {
-  /** Identifiant stable, utilise plus tard par l'enquete. */
-  id: string;
-  /** Titre affiche en haut du panneau d'information. */
-  title: string;
-  /** Texte affiche sous le viseur. Ex. : "Examiner le cendrier" */
-  prompt: string;
-  /** Texte affiche au clic. */
-  info: string;
-
-  /**
-   * Si present, viser cet objet propose d'INTERROGER ce personnage au
-   * lieu de l'examiner. C'est ce champ qui distingue les deux verbes.
-   */
-  characterId?: string;
-
-  /**
-   * Si present, examiner cet objet l'enregistre comme INDICE dans
-   * l'etat de l'enquete. Un objet peut etre observable sans etre un
-   * indice : tout n'est pas une preuve.
-   */
-  clueId?: string;
-}
+/**
+ * Donnees portees par un objet observable.
+ *
+ * -------------------------------------------------------------------
+ * TROIS SORTES DE CIBLES, ET POURQUOI C'EST UN TYPE UNION
+ * -------------------------------------------------------------------
+ * Un indice ne porte QUE son identifiant : ses textes sont ecrits dans
+ * src/data/, une seule fois. Cette union n'est pas une coquetterie de
+ * typage, c'est la garantie mecanique de cette regle -- ecrire le texte
+ * d'un indice dans la scene 3D ne compile pas.
+ *
+ * Un objet ordinaire, lui, porte son propre texte : il n'appartient pas
+ * a l'affaire, il n'a donc rien a faire dans son catalogue. Tout n'est
+ * pas une preuve.
+ *
+ * Le systeme ne sait toujours rien de l'enquete : il transporte un
+ * identifiant sans savoir ce qu'il designe.
+ */
+export type Interactable =
+  /** Un indice. La scene fournit l'identifiant, le catalogue les mots. */
+  | { kind: 'clue'; clueId: string }
+  /** Un personnage a interroger. */
+  | { kind: 'character'; characterId: string; title: string; prompt: string }
+  /** Un objet observable qui n'est pas un indice : il porte ses textes. */
+  | { kind: 'prop'; title: string; prompt: string; info: string };
 
 /** Portee maximale du regard, en metres. */
 const REACH = 2.5;

@@ -78,11 +78,37 @@ export function evidenceKey(evidence: Evidence): string {
   return `${evidence.kind}:${evidence.id}`;
 }
 
-/** Fiche d'un indice : ce que le joueur lit quand il le choisit. */
+/**
+ * Fiche d'un indice : TOUT ce que le joueur lit a son sujet.
+ *
+ * -------------------------------------------------------------------
+ * SOURCE UNIQUE DE VERITE (Phase 6A)
+ * -------------------------------------------------------------------
+ * Ces textes vivaient auparavant dans la scene 3D, en double avec le
+ * nom ecrit ici. Deux copies d'une meme chose finissent toujours par
+ * diverger -- et c'etait deja arrive.
+ *
+ * Desormais la scene ne dit plus que « l'indice ashtray se ramasse
+ * ici » ; tout le reste est ecrit une seule fois, a cet endroit. C'est
+ * ce qui rendra possible des lieux importes depuis Blender : on ne
+ * peut pas ecrire une phrase francaise dans un fichier .glb.
+ *
+ * Regle d'ecriture : une fiche d'indice CONSTATE, elle ne juge pas.
+ * « Le combine est decroche » et non « il a donc menti sur l'appel ».
+ * C'est au joueur de conclure.
+ */
 export interface ClueEntry {
   id: ClueId;
-  /** Nom court, affiche dans la liste. Ex. : « Cendrier ». */
+  /**
+   * Nom de l'indice. Il sert partout : titre de sa fiche quand on
+   * l'examine, libelle dans la liste des elements a presenter, et
+   * demain rubrique du carnet. Un seul nom, un seul endroit.
+   */
   name: string;
+  /** Libelle affiche sous le viseur. Ex. : « Examiner le cendrier ». */
+  prompt: string;
+  /** Ce que l'inspecteur constate en l'examinant. */
+  description: string;
 }
 
 /**

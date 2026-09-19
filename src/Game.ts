@@ -28,12 +28,14 @@ import { ModelLibrary } from './core/Loaders';
 import { Player } from './player/Player';
 import { Collider } from './player/Collider';
 import { InteractionSystem } from './interaction/InteractionSystem';
+import type { Interactable } from './interaction/InteractionSystem';
 import { TestRoomScene } from './world/scenes/TestRoomScene';
 import { buildCollisionGeometry, triangleCount } from './world/collision';
 import { Hud } from './ui/Hud';
 import { DialogueUI } from './ui/DialogueUI';
+import { StateReport } from './ui/StateReport';
 import { GameState } from './game/GameState';
-import { DialogueEngine, validateCase } from './game/dialogue';
+import { DialogueEngine, validateCase, validateSceneClues } from './game/dialogue';
 import { Interrogation } from './game/Interrogation';
 import { demoCase } from './data/demo/greco';
 import type { Character } from './world/Character';
@@ -57,6 +59,8 @@ export class Game {
   private readonly models = new ModelLibrary();
   private readonly interaction: InteractionSystem;
   private readonly hud: Hud;
+  /** Releve d'etat, seulement si ?etat=1. null le reste du temps. */
+  private readonly stateReport: StateReport | null;
 
   /* --- Enquete (Phase 5A) --- */
   private readonly state = new GameState();
@@ -110,6 +114,12 @@ export class Game {
       ? Math.min(Math.max(Math.trunc(requested), 0), 8)
       : 2;
 
+    /* ?etat=1 affiche le releve de l'etat de l'enquete : un instrument de
+       controle, pas le carnet (voir ui/StateReport.ts). Absent, il n'est
+       pas construit du tout. */
+    const wantsReport = new URLSearchParams(window.location.search).get('etat') === '1';
+    this.stateReport = wantsReport ? new StateReport() : null;
+
     this.engine = new Engine(canvas);
     this.input = new Input(canvas);
     this.hud = new Hud();
@@ -128,17 +138,26 @@ export class Game {
     } else {
       console.info(
         `[enquete] donnees validees : ${demoCase.topics.length} questions, ` +
-          `${demoCase.statements.length} declarations`,
+          `${demoCase.statements.length} declarations, ${demoCase.clues.length} indices`,
       );
     }
     this.interrogation = new Interrogation(this.dialogue, this.state, this.dialogueUI);
     this.dialogueUI.onLeave = () => this.endInterrogation();
 
+    /* Le releve suit l'etat. GameState previent a chaque modification
+       reelle : inutile de le redessiner a chaque image. */
+    if (this.stateReport) {
+      this.state.onChange = () => this.refreshStateReport();
+      this.refreshStateReport();
+    }
+
     this.interaction = new InteractionSystem(this.room.scene, this.engine.camera);
-    this.interaction.onTargetChange = (target) => this.hud.setTarget(target?.prompt ?? null);
+    this.interaction.onTargetChange = (target) => {
+      this.hud.setTarget(target === null ? null : this.describe(target).prompt);
+    };
     this.interaction.onInteract = (target) => {
       // Un personnage s'interroge, un objet s'examine.
-      if (target.characterId) this.startInterrogation(target.characterId);
+      if (target.kind === 'character') this.startInterrogation(target.characterId);
       else this.examine(target);
     };
 
@@ -171,8 +190,46 @@ export class Game {
     this.player.setCollider(this.collider);
     console.info(`[collisions] ${triangleCount(collisionGeometry)} triangles de collision`);
 
+    /* CONTROLE CROISE decor <-> catalogue des indices (Phase 6A).
+       Ici et pas dans le constructeur : les modeles importes posent
+       leurs propres objets observables, et l'appareil photo en est un.
+       Avant ce chargement, il manquerait a l'appel. */
+    const sceneProblems = validateSceneClues(demoCase, this.room.clueIdsInScene());
+    if (sceneProblems.length > 0) {
+      console.warn(`[enquete] ${sceneProblems.length} probleme(s) entre le decor et l'affaire :`);
+      for (const problem of sceneProblems) console.warn(`  - ${problem}`);
+    } else {
+      console.info('[enquete] decor et catalogue des indices concordent');
+    }
+
     this.hud.setLoadingProgress(1, '');
     this.hud.hideLoading();
+  }
+
+  /**
+   * Alimente le releve d'etat. Ne fait rien sans ?etat=1.
+   *
+   * Noter ce qui traverse : des noms d'indices, et des StatementView.
+   * Aucun Statement complet, donc aucun champ interne -- la regle absolue
+   * du projet tient ici comme ailleurs.
+   */
+  private refreshStateReport(): void {
+    if (!this.stateReport) return;
+    const data = this.state.data;
+    this.stateReport.show({
+      clues: data.discoveredClues.map((id) => ({
+        id,
+        name: this.dialogue.clue(id)?.name ?? '(absent du catalogue)',
+      })),
+      statements: this.dialogue.heardStatements().map((view) => ({
+        id: view.id,
+        text: view.text,
+        replacesId: view.replacesId,
+      })),
+      facts: [...data.knownFacts],
+      askedTopics: [...data.askedTopics],
+      moods: Object.entries(data.moods).map(([character, mood]) => ({ character, mood })),
+    });
   }
 
   /** Affiche un message lisible plutot qu'un ecran noir en cas d'echec. */
@@ -193,6 +250,7 @@ export class Game {
     for (const character of this.room.characters) character.dispose();
     this.collider?.dispose();
     this.models.dispose();
+    this.stateReport?.dispose();
   }
 
   // -----------------------------------------------------------------
@@ -267,22 +325,68 @@ export class Game {
     look.pitch += (targetPitch - look.pitch) * k;
   }
 
-  /** Examen d'un objet : affiche sa fiche, et l'enregistre s'il est un indice. */
-  private examine(target: { title: string; info: string; clueId?: string }): void {
-    if (target.clueId && this.state.discoverClue(target.clueId)) {
-      console.info(`[enquete] indice decouvert : ${target.clueId}`);
+  /**
+   * Les mots a afficher pour une cible visee.
+   *
+   * -------------------------------------------------------------------
+   * LE POINT DE RENCONTRE (Phase 6A)
+   * -------------------------------------------------------------------
+   * Pour un indice, la scene 3D n'a fourni qu'un identifiant : les mots
+   * viennent du catalogue de l'affaire. Pour un objet ordinaire, ils
+   * sont sur place, puisqu'il n'appartient pas a l'enquete.
+   *
+   * C'est la seule fonction du jeu qui rapproche les deux, et c'est
+   * voulu : un seul endroit a lire pour comprendre d'ou vient un texte.
+   */
+  private describe(target: Interactable): { prompt: string; title: string; info: string } {
+    if (target.kind === 'character') {
+      return { prompt: target.prompt, title: target.title, info: '' };
     }
-    this.openInfo(target.title, target.info);
+    if (target.kind === 'prop') {
+      return { prompt: target.prompt, title: target.title, info: target.info };
+    }
+
+    const entry = this.dialogue.clue(target.clueId);
+    if (entry) {
+      return { prompt: entry.prompt, title: entry.name, info: entry.description };
+    }
+
+    /* Fiche absente du catalogue. Le controle croise du demarrage l'a
+       deja signalee nommement ; on le dit aussi a l'ecran plutot que
+       d'afficher du vide, et le jeu continue de tourner. */
+    return {
+      prompt: 'Examiner cet objet',
+      title: 'Objet non catalogué',
+      info:
+        `Aucune fiche pour l\u2019indice « ${target.clueId} ». ` +
+        'Voir la console du navigateur.',
+    };
   }
 
-  private openInfo(title: string, text: string): void {
+  /** Examen d'un objet : affiche sa fiche, et l'enregistre s'il est un indice. */
+  private examine(target: Interactable): void {
+    const { title, info } = this.describe(target);
+
+    /* Un objet peut etre observable sans etre un indice : tout n'est pas
+       une preuve, et rien n'est alors enregistre ni annonce. */
+    let note: string | null = null;
+    if (target.kind === 'clue') {
+      const isNew = this.state.discoverClue(target.clueId);
+      if (isNew) console.info(`[enquete] indice decouvert : ${target.clueId}`);
+      note = isNew ? 'Noté au dossier' : 'Déjà au dossier';
+    }
+
+    this.openInfo(title, info, note);
+  }
+
+  private openInfo(title: string, text: string, note: string | null = null): void {
     this.mode = 'examining';
     // On suspend les commandes plutot que de liberer la souris : cela evite
     // au joueur de devoir recliquer, et le delai d'une seconde que Chrome
     // impose avant de rendre le controle apres un Echap.
     this.input.setEnabled(false);
     this.interaction.clear();
-    this.hud.showInfo(title, text);
+    this.hud.showInfo(title, text, note);
   }
 
   private closeInfo(): void {

@@ -3,7 +3,7 @@
 Petit jeu d'enquête policière 3D en vue FPS, jouable dans un navigateur.
 États-Unis, 1948. Ambiance film noir. Une seule affaire de meurtre.
 
-**État actuel : Phase 5B — présenter une preuve.**
+**État actuel : Phase 6A — l'indice devient une donnée.**
 Une pièce de test en primitives (graybox), une caméra à la première personne,
 le déplacement ZQSD/WASD, la gravité, de vraies collisions (murs, escalier,
 rampe, passage étroit) l'observation d'objets (viseur, libellé,
@@ -12,7 +12,9 @@ humanoïdes animés** qui suivent le joueur du regard, un **système
 d'interrogatoire** (questions conditionnelles, réponses jouées, gestes et
 humeurs) et la **présentation d'éléments** : montrer un indice ramassé ou une
 déclaration déjà entendue, et voir le personnage réagir — parfois changer de
-version. Pas encore de carnet de police ni d'affaire définitive.
+version. Depuis la Phase 6A, **tout ce que le joueur lit d'un indice est écrit
+dans `src/data/`** : la scène 3D ne fournit plus que la géométrie et un
+identifiant. Pas encore de carnet de police ni d'affaire définitive.
 
 ### Commandes en jeu
 
@@ -28,9 +30,18 @@ version. Pas encore de carnet de police ni d'affaire définitive.
 | `Échap` | revenir aux questions, puis terminer l'entretien |
 | `Échap` | libérer la souris |
 
-Adresse de réglage : `?personnages=N` (0 à 8) change le nombre de mannequins,
-pour mesurer leur coût sur sa propre machine. Exemple :
-`http://localhost:5173/?personnages=4`
+Adresses de réglage :
+
+| Paramètre | Effet |
+|---|---|
+| `?personnages=N` | 0 à 8 mannequins, pour mesurer leur coût sur sa machine |
+| `?etat=1` | affiche le relevé de l'état de l'enquête (outil de contrôle) |
+
+Exemple : `http://localhost:5173/?personnages=4&etat=1`
+
+Le relevé d'état **n'est pas le carnet** : c'est un affichage brut et inerte,
+qui sert à vérifier que ce qu'on vient de faire a bien été enregistré. Le
+carnet, lui, sera un vrai objet de jeu (Phase 7).
 
 ---
 
@@ -165,6 +176,60 @@ révèle immédiatement un asset mal préparé.
 
 Tout modèle ajouté doit être crédité dans `public/models/CREDITS.md`.
 
+## Écrire un indice
+
+Un indice est une **donnée**, pas un objet 3D qui parle. Tout ce que le joueur
+lit à son sujet est écrit une seule fois, dans le catalogue de l'affaire :
+
+```ts
+// src/data/demo/greco.ts
+clues: [
+  {
+    id: 'ashtray',
+    name: 'Cendrier',                    // liste ET titre de la fiche
+    prompt: 'Examiner le cendrier',      // libellé sous le viseur
+    description: 'Un mégot taché de rouge à lèvres, écrasé récemment. …',
+  },
+]
+```
+
+La scène 3D, elle, ne dit plus que **où il se trouve** :
+
+```ts
+// src/world/scenes/TestRoomScene.ts
+this.makeExaminable(ashtray, { kind: 'clue', clueId: 'ashtray' });
+```
+
+Ce n'est pas une convention qu'on peut oublier : `Interactable` est un type
+union à trois cas (`clue`, `character`, `prop`), et le cas `clue` **ne possède
+pas** de champ de texte. Écrire la description d'un indice dans la scène ne
+compile pas.
+
+Pourquoi cette séparation : les vrais lieux seront des fichiers `.glb` exportés
+depuis Blender. On ne peut pas écrire une phrase française dans un fichier
+binaire — mais on peut y nommer un emplacement.
+
+### Deux fautes que le jeu attrape désormais tout seul
+
+Au démarrage, `validateSceneClues()` rapproche les deux côtés et nomme le
+coupable en console :
+
+| Faute | Ce qui se passait avant | Message |
+|---|---|---|
+| un objet désigne un indice inexistant | le joueur le ramassait et ne pouvait jamais le présenter | `decor : un objet designe l'indice "phon", absent du catalogue` |
+| un indice écrit que rien ne permet de trouver | contenu mort, enquête peut-être insoluble | `indice "phone" : aucun objet du decor ne permet de le trouver` |
+
+Le jeu continue de tourner dans les deux cas : une fiche de secours s'affiche
+plutôt qu'un panneau vide.
+
+### Observable n'est pas indice
+
+Tout n'est pas une preuve. Un objet peut s'examiner sans rien enregistrer : il
+s'écrit alors `{ kind: 'prop', title, prompt, info }` et porte son propre texte,
+puisqu'il n'appartient pas à l'affaire. À l'écran, la différence se voit : la
+fiche d'un indice porte la mention « Noté au dossier » (ou « Déjà au dossier »),
+celle d'un objet ordinaire n'en porte aucune.
+
 ## Écrire un interrogatoire
 
 Les dialogues sont des **données**, pas du code. Un personnage possède une
@@ -284,7 +349,8 @@ réellement besoin.
 - [x] **Phase 4** — personnages animés : squelette, fondus, regard, coût mesuré
 - [x] **Phase 5A** — interrogatoires : moteur de dialogue, gestes, humeurs
 - [x] **Phase 5B** — présenter un indice, réactions, changement de version
-- [ ] Phase 6 — indices et état de l'enquête
+- [x] **Phase 6A** — l'indice devient une donnée : source unique, contrôle croisé
+- [ ] Phase 6B — les faits acquis
 - [ ] Phase 7 — carnet de police et sauvegarde
 - [ ] Phase 8 — tranche verticale jouable
 - [ ] Phases 9 à 16 — contenu, lieux, ambiance, audio, finition

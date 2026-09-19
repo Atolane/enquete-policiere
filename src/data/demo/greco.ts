@@ -49,14 +49,45 @@ export const demoCase: CaseData = {
   ],
 
   /* --- Catalogue des indices ---------------------------------------
-     Ces identifiants correspondent aux objets observables places dans
-     la piece de test (voir TestRoomScene). Un indice ramasse sans fiche
-     ici s'affiche avec son identifiant brut et un avertissement. */
+     Tout ce que le joueur lit d'un indice est ecrit ICI, une seule fois
+     (Phase 6A) : la scene 3D ne fournit plus que la geometrie et
+     l'identifiant. Un identifiant pose dans la scene et absent de cette
+     liste -- ou l'inverse -- est signale au demarrage, nommement.
+
+     Chaque fiche CONSTATE, elle ne juge pas et ne conclut pas. */
   clues: [
-    { id: 'ashtray', name: 'Cendrier' },
-    { id: 'report', name: 'Rapport dactylographié' },
-    { id: 'phone', name: 'Téléphone décroché' },
-    { id: 'press_camera', name: 'Appareil photo de presse' },
+    {
+      id: 'ashtray',
+      name: 'Cendrier',
+      prompt: 'Examiner le cendrier',
+      description:
+        'Un mégot taché de rouge à lèvres, écrasé récemment. ' +
+        'Quelqu\u2019un est resté ici après la fermeture.',
+    },
+    {
+      id: 'report',
+      name: 'Rapport dactylographié',
+      prompt: 'Lire le document',
+      description:
+        'Un rapport daté du 12 novembre 1948. ' +
+        'Le nom du signataire a été soigneusement découpé au rasoir.',
+    },
+    {
+      id: 'phone',
+      name: 'Téléphone décroché',
+      prompt: 'Examiner le téléphone',
+      description:
+        'Le combiné est décroché et posé de travers. ' +
+        'La ligne est muette : quelqu\u2019un a appelé, puis n\u2019a pas raccroché.',
+    },
+    {
+      id: 'press_camera',
+      name: 'Appareil photo de presse',
+      prompt: 'Examiner l\u2019appareil photo',
+      description:
+        'Un appareil à soufflet monté sur trépied, du modèle qu\u2019utilisent ' +
+        'les reporters de faits divers. Le magasin est vide : les plaques ont été retirées.',
+    },
   ],
 
   /* --- Les declarations -------------------------------------------

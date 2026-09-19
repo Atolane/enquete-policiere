@@ -23,6 +23,7 @@ import type {
   CharacterId,
   Condition,
   ClueEntry,
+  ClueId,
   DialogueLine,
   DialogueTopic,
   Evidence,
@@ -68,6 +69,16 @@ export class DialogueEngine {
 
   characterSheet(id: CharacterId) {
     return this.data.characters.find((c) => c.id === id) ?? null;
+  }
+
+  /**
+   * La fiche d'un indice : son nom, son libelle d'action, son texte.
+   *
+   * C'est par ici que passent desormais TOUS les mots d'un indice, y
+   * compris ceux que la scene 3D affichait elle-meme avant la Phase 6A.
+   */
+  clue(id: ClueId): ClueEntry | null {
+    return this.cluesById.get(id) ?? null;
   }
 
   /**
@@ -326,8 +337,30 @@ export function validateCase(data: CaseData): string[] {
     }
   }
 
-  // --- Indices et reactions (Phase 5B) ---
+  // --- Indices et reactions (Phase 5B, etendu en 6A) ---
   const clues = new Set(data.clues.map((c) => c.id));
+
+  const seenClues = new Set<string>();
+  for (const clue of data.clues) {
+    if (seenClues.has(clue.id)) problems.push(`indice en double : ${clue.id}`);
+    seenClues.add(clue.id);
+
+    /* Depuis la Phase 6A ces trois textes sont la SEULE source : s'ils
+       manquent, le joueur voit un libelle vide, sans autre indication. */
+    if (clue.name.trim() === '') problems.push(`indice ${clue.id} : aucun nom`);
+    if (clue.prompt.trim() === '') {
+      problems.push(`indice ${clue.id} : aucun libelle d'action (ex. « Examiner le cendrier »)`);
+    }
+    if (clue.description.trim() === '') {
+      problems.push(`indice ${clue.id} : aucune description a lire`);
+    }
+    if (clue.description.length > 320) {
+      problems.push(
+        `indice ${clue.id} : description de ${clue.description.length} signes, ` +
+          "c'est trop long pour une fiche lue debout dans une piece",
+      );
+    }
+  }
   for (const character of data.characters) {
     if (character.defaultReaction.length === 0) {
       problems.push(
@@ -390,6 +423,52 @@ export function validateCase(data: CaseData): string[] {
         `${character.id} : aucune question de relance permanente ` +
           '(sans condition et reposable). Le joueur pourrait se bloquer.',
       );
+    }
+  }
+
+  return problems;
+}
+
+/**
+ * Controle croise entre la scene 3D et le catalogue des indices.
+ *
+ * -------------------------------------------------------------------
+ * POURQUOI CE CONTROLE EST SEPARE DE validateCase()
+ * -------------------------------------------------------------------
+ * validateCase() ne voit que les donnees de l'affaire ; il ne peut pas
+ * savoir quels objets ont ete places dans le decor. Le rapprochement
+ * demande les deux cotes, et c'est Game.ts, seul, qui les voit tous les
+ * deux.
+ *
+ * La frontiere tient quand meme : ce qui traverse est un simple tableau
+ * de chaines, jamais un objet Three.js. Ce fichier n'importe toujours
+ * pas la 3D, et ne l'importera jamais.
+ *
+ * Les deux fautes attrapees sont celles qui, jusqu'a la Phase 6A,
+ * passaient en silence :
+ *   - un objet du decor qui designe un indice qui n'existe pas :
+ *     le joueur le ramasse et ne peut jamais le presenter ;
+ *   - un indice ecrit mais qu'aucun objet ne permet de trouver :
+ *     du contenu mort, et peut-etre une enquete insoluble.
+ *
+ * @param idsInScene les identifiants d'indices reellement poses dans le
+ *   decor, tels que la scene les rapporte.
+ */
+export function validateSceneClues(data: CaseData, idsInScene: string[]): string[] {
+  const problems: string[] = [];
+  const catalogue = new Set(data.clues.map((c) => c.id));
+  const placed = new Set(idsInScene);
+
+  for (const id of placed) {
+    if (!catalogue.has(id)) {
+      problems.push(
+        `decor : un objet designe l'indice "${id}", absent du catalogue de l'affaire`,
+      );
+    }
+  }
+  for (const id of catalogue) {
+    if (!placed.has(id)) {
+      problems.push(`indice "${id}" : aucun objet du decor ne permet de le trouver`);
     }
   }
 
