@@ -39,6 +39,7 @@ import { Casebook } from './game/Casebook';
 import { GameState } from './game/GameState';
 import { DialogueEngine, validateCase, validateSceneClues } from './game/dialogue';
 import { Interrogation } from './game/Interrogation';
+import { SaveSlot } from './game/save';
 import { demoCase } from './data/demo/greco';
 import type { Character } from './world/Character';
 
@@ -80,7 +81,10 @@ export class Game {
   private ready = false;
 
   /* --- Enquete (Phase 5A) --- */
-  private readonly state = new GameState();
+  private readonly state: GameState;
+  private readonly save = new SaveSlot();
+  /** La souris etait-elle capturee avant l'ouverture du carnet ? */
+  private lockedBeforeNotebook = false;
   private readonly dialogue: DialogueEngine;
   private readonly dialogueUI = new DialogueUI();
   private readonly interrogation: Interrogation;
@@ -145,6 +149,15 @@ export class Game {
 
     this.player.spawn(this.room.spawn, this.room.spawnYaw);
 
+    /* PARTIE CONSERVEE (Phase 7B).
+       On relit AVANT de construire quoi que ce soit qui depende de
+       l'etat. La sauvegarde est confrontee aux donnees de l'affaire :
+       ce qui n'existe plus est ecarte et nomme en console, jamais en
+       silence, et une sauvegarde abimee ne fait que ramener a une partie
+       neuve -- elle n'empeche jamais de jouer. */
+    this.state = new GameState(this.save.read(demoCase) ?? undefined);
+    this.notebook.setSaving(this.save.available);
+
     /* Enquete. Le validateur s'execute au demarrage : une faute de frappe
        dans les donnees est signalee tout de suite, pas en cours de partie. */
     this.dialogue = new DialogueEngine(demoCase, this.state);
@@ -172,11 +185,14 @@ export class Game {
        carnet et le releve se mettent a jour sans se marcher dessus.
        GameState previent a chaque modification reelle, donc inutile de
        redessiner quoi que ce soit a chaque image. */
+    this.state.subscribe(() => this.save.write(this.state.data));
     this.state.subscribe(() => this.notebook.refresh(this.casebook.build()));
     if (this.stateReport) {
       this.state.subscribe(() => this.refreshStateReport());
       this.refreshStateReport();
     }
+
+    this.notebook.onRestart = () => this.restartInvestigation();
 
     window.addEventListener('keydown', this.handleKey);
 
@@ -342,10 +358,18 @@ export class Game {
   /**
    * Ouvre le carnet. Possible en exploration ET pendant un entretien.
    *
-   * On ne touche PAS au Pointer Lock : le carnet ne demande aucun clic,
-   * et le rendre puis le reprendre imposerait au joueur de recliquer,
-   * plus le delai d'une seconde de Chrome. On suspend les commandes,
-   * exactement comme la fiche d'un objet examine.
+   * -------------------------------------------------------------------
+   * POURQUOI ON REND LA SOURIS (revu en Phase 7B)
+   * -------------------------------------------------------------------
+   * La 7A gardait la souris capturee : le carnet ne demandait aucun
+   * clic. Ce n'est plus vrai. Sous Pointer Lock, TOUS les evenements de
+   * souris -- molette comprise -- vont a l'element verrouille : le
+   * dossier ne defilait donc pas du tout, et le bouton de remise a zero
+   * aurait ete inatteignable.
+   *
+   * On rend donc la souris, comme le fait l'entretien. Et pour ne pas
+   * imposer au joueur de recliquer, on la REPREND en refermant : l'appui
+   * sur N est un geste utilisateur, ce que le Pointer Lock exige.
    */
   private openNotebook(): void {
     if (!this.ready) return; // la partie n'a pas encore commence
@@ -353,11 +377,13 @@ export class Game {
 
     this.modeBeforeNotebook = this.mode;
     this.mode = 'notebook';
+    this.lockedBeforeNotebook = this.input.isLocked();
     this.input.setEnabled(false);
     this.interaction.clear();
     this.dialogueUI.setSuspended(true);
     this.hud.setNotebookOpen(true);
     this.notebook.open(this.casebook.build());
+    if (this.lockedBeforeNotebook) document.exitPointerLock();
   }
 
   /** Referme le carnet et rend le jeu exactement comme il etait. */
@@ -366,11 +392,51 @@ export class Game {
 
     this.mode = this.modeBeforeNotebook;
     this.notebook.close();
-    this.hud.setNotebookOpen(false);
     this.dialogueUI.setSuspended(false);
     /* Pendant un entretien les commandes etaient DEJA suspendues : on ne
        les rend qu'a celui qui explorait. */
     this.input.setEnabled(this.mode === 'exploring');
+
+    /* On ne reprend la souris que si on l'avait : pendant un entretien
+       elle est libre a dessein, et il faut qu'elle le reste. */
+    if (this.mode !== 'exploring' || !this.lockedBeforeNotebook) {
+      this.hud.setNotebookOpen(false);
+      return;
+    }
+
+    /* Le verrouillage prend une cinquantaine de millisecondes, et la
+       promesse du Pointer Lock se resout AVANT que l'evenement
+       pointerlockchange n'arrive. Declarer le carnet ferme tout de suite
+       laissait donc l'interface croire la souris encore libre, et faisait
+       clignoter le panneau « cliquer pour prendre le controle » pendant
+       52 ms -- mesurees, et parfaitement visibles.
+       On attend donc l'issue, puis on lit l'etat REEL sans attendre
+       l'evenement : il repassera ensuite avec la meme valeur. En cas de
+       refus, pointerLockElement est nul et le panneau s'affiche -- ce qui
+       est exactement ce qu'il faut faire. */
+    void this.input.requestLock().finally(() => {
+      // Le joueur a pu rouvrir le carnet entre-temps : on ne l'ecrase pas.
+      if (this.mode === 'notebook') return;
+      this.hud.setLocked(document.pointerLockElement !== null, false);
+      this.hud.setNotebookOpen(false);
+    });
+  }
+
+  /**
+   * Recommence l'enquete : efface la partie conservee et repart a zero.
+   *
+   * On recharge la page plutot que de vider l'etat en place. C'est plus
+   * brutal en apparence, et beaucoup plus sur : l'etat est reference par
+   * le moteur de dialogue, le dossier, l'entretien et les humeurs des
+   * personnages dans la 3D. Un oubli quelque part laisserait une
+   * progression fantome, et c'est exactement le genre de bug qu'on ne
+   * remarque que trois phases plus tard.
+   *
+   * Le rechargement conserve les parametres d'adresse (?etat=1...).
+   */
+  private restartInvestigation(): void {
+    this.save.clear();
+    window.location.reload();
   }
 
   // --- Interrogatoire (Phase 5A) ------------------------------------

@@ -17,6 +17,12 @@
   flex-direction: column;
   background: rgba(7, 9, 13, 0.94);
   transition: opacity 0.14s ease;
+  /* #ui-layer est en pointer-events: none et chaque panneau les
+     reactive s'il en a besoin. Le carnet en a besoin pour DEUX raisons :
+     la molette (sans quoi le dossier ne defile pas du tout, ce qui
+     passe inapercu tant que le contenu tient a l'ecran) et le bouton de
+     remise a zero. */
+  pointer-events: auto;
 }
 
 #notebook-panel.is-hidden {
@@ -126,4 +132,76 @@
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: #6f6a60;
+}
+
+/* --- Pied de page : conservation de la partie et remise a zero -------
+   Nettement separe du dossier. Le bouton d'effacement est traite en
+   retrait, pas en bouton d'action principal : il ne doit pas attirer
+   l'oeil ni le clic. */
+#notebook-footer {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  flex-wrap: wrap;
+  padding: 12px 28px 16px;
+  border-top: 1px solid #2a2f38;
+}
+
+.notebook-storage {
+  font-size: 11px;
+  font-style: italic;
+  color: #6f6a60;
+}
+
+.notebook-storage.is-warning {
+  font-style: normal;
+  color: #c8a062;
+}
+
+.notebook-action {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.notebook-action.is-hidden {
+  display: none;
+}
+
+.notebook-confirm-text {
+  font-size: 12px;
+  color: #ddd6c6;
+}
+
+#notebook-footer button {
+  font: inherit;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #8d8677;
+  background: transparent;
+  border: 1px solid #3a4150;
+  border-radius: 2px;
+  padding: 6px 12px;
+  cursor: pointer;
+  transition: color 0.12s ease, border-color 0.12s ease;
+}
+
+#notebook-footer button:hover {
+  color: #ddd6c6;
+  border-color: #6f6a60;
+}
+
+/* Le seul bouton reellement destructeur : il s'annonce comme tel, mais
+   seulement une fois qu'on l'a demande. */
+#notebook-confirm {
+  color: #d8907a;
+  border-color: #7a4a3c;
+}
+
+#notebook-confirm:hover {
+  color: #f0b39c;
+  border-color: #b06a52;
 }

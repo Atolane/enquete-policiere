@@ -3,7 +3,7 @@
 Petit jeu d'enquête policière 3D en vue FPS, jouable dans un navigateur.
 États-Unis, 1948. Ambiance film noir. Une seule affaire de meurtre.
 
-**État actuel : Phase 7A — le carnet.**
+**État actuel : Phase 7B — sauvegarde et reprise.**
 Une pièce de test en primitives (graybox), une caméra à la première personne,
 le déplacement ZQSD/WASD, la gravité, de vraies collisions (murs, escalier,
 rampe, passage étroit) l'observation d'objets (viseur, libellé,
@@ -18,7 +18,8 @@ identifiant. Depuis la 6B, l'enquête tient aussi des **faits acquis** — ce
 qu'elle a établi par ailleurs, qui ouvre des questions n'ayant aucun sens
 avant eux. Et depuis la 7A, tout cela se consulte : un **carnet**
 s'ouvre à la touche `N`, en exploration comme au milieu d'un
-interrogatoire. Pas encore de sauvegarde ni d'affaire définitive.
+interrogatoire. La 7B **conserve la partie** : on peut fermer l'onglet et
+retrouver son dossier intact. Pas encore d'affaire définitive.
 
 ### Commandes en jeu
 
@@ -32,6 +33,7 @@ interrogatoire. Pas encore de sauvegarde ni d'affaire définitive.
 | `1`-`9` | choisir une question, ou un élément à présenter |
 | `P` | présenter un élément pendant un entretien |
 | `N` | ouvrir et refermer le carnet (même pendant un entretien) |
+| molette | faire défiler le dossier |
 | `Échap` | refermer le carnet, revenir aux questions, terminer l'entretien |
 | `Échap` | libérer la souris |
 
@@ -400,6 +402,48 @@ travail du joueur), les **questions déjà posées** (une liste de courses, pas 
 dossier), les **identifiants techniques** et tout **score**. Elles restent
 visibles dans le relevé `?etat=1`, qui sert aux tests.
 
+### La partie est conservée
+
+Chaque changement d'état est écrit dans `localStorage`, sous une seule clé
+(`enquete-1948:partie`). La sauvegarde est un `JSON.stringify` de
+`InvestigationState` — rien de plus, parce que cet objet n'a jamais contenu
+autre chose que des identifiants et des chaînes.
+
+```
+src/game/save.ts
+  ├─ serialise(state)            l'état → une chaîne JSON
+  ├─ parseSave(texte, caseData)  une chaîne → un état PROPRE, ou null (pure)
+  └─ class SaveSlot              les trois seuls appels à localStorage
+```
+
+**Ce qui n'est pas sauvegardé, et pourquoi :**
+
+| Non conservé | Raison |
+|---|---|
+| la position du joueur | une coordonnée n'a de sens que dans un décor, et les vrais lieux remplaceront la pièce de test. Restaurer `x -4,5` dans un décor qui a changé, c'est se retrouver dans un mur. On réapparaît au point de départ |
+| l'entretien en cours | sa file de répliques vit dans `Interrogation`. Recharger ne perd que les lignes en train de défiler : `askedTopics` et `records` sont écrits dès qu'une question est appliquée |
+| le mode de jeu | on revient toujours en exploration |
+| le champ `truth` | il n'est dans aucun des huit champs. Ouvrir la sauvegarde dans la console ne révèle donc pas qui mentait |
+
+**La règle qui gouverne `save.ts` : une sauvegarde abîmée ne doit jamais
+empêcher de jouer.** Au pire on repart de zéro, mais on le dit — rien n'est
+jeté en silence.
+
+| Ce qui arrive | Ce qui se passe |
+|---|---|
+| `localStorage` indisponible (navigation privée, quota) | le jeu démarre, un avertissement **unique**, et le carnet prévient que rien ne sera conservé |
+| version de format différente | refusée en nommant les deux versions, partie neuve. **On ne migre pas** : une migration jamais testée est plus dangereuse qu'un redémarrage annoncé |
+| JSON illisible, ou pas un objet | refusé, partie neuve |
+| un champ absent ou du mauvais type | ce champ seul repart vide, le reste de la progression est gardé |
+| des identifiants qui n'existent plus | écartés un par un, comptés et nommés. C'est le cas le plus probable : Greco est jetable, et toute partie existante citera des `greco_*` le jour où il disparaîtra |
+
+Deux onglets ouverts sur la même partie : le dernier qui écrit gagne.
+Limitation assumée.
+
+Pour repartir de zéro : « Recommencer l'enquête », en pied de carnet, avec une
+confirmation en deux temps. L'armement retombe dès que le carnet se referme —
+on ne laisse pas un bouton destructeur armé dans le dos du joueur.
+
 ### Priorités clavier
 
 Trois composants écoutent le clavier. À tout instant, un seul est réveillé pour
@@ -425,6 +469,7 @@ silences continueraient de s'écouler et les répliques de défiler derrière lu
 ```
 src/game/Casebook.ts   assemble le dossier (aucun DOM, aucun Three.js)
 src/ui/Notebook.ts     le dessine (ne connaît ni l'état ni le moteur)
+src/game/save.ts       conserve et relit la partie
 ```
 
 Même séparation que `Interrogation` / `DialogueUI`. Le carnet ne touche pas au
@@ -477,6 +522,6 @@ réellement besoin.
 - [x] **Phase 6A** — l'indice devient une donnée : source unique, contrôle croisé
 - [x] **Phase 6B** — les faits acquis : catalogue, validation, conditions
 - [x] **Phase 7A** — le carnet : dossier consultable, rubriques, priorités clavier
-- [ ] Phase 7B — sauvegarde et reprise
+- [x] **Phase 7B** — sauvegarde et reprise, tolérante aux sauvegardes abîmées
 - [ ] Phase 8 — tranche verticale jouable
 - [ ] Phases 9 à 16 — contenu, lieux, ambiance, audio, finition

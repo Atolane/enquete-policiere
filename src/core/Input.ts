@@ -100,6 +100,36 @@ export class Input {
     }
   }
 
+  /**
+   * Redemande la capture de la souris.
+   *
+   * Extrait du gestionnaire de clic en Phase 7B : le carnet rend la
+   * souris en s'ouvrant (il faut pouvoir y cliquer et y faire defiler) et
+   * la reprend en se refermant, sans obliger le joueur a recliquer.
+   *
+   * Le Pointer Lock exige un geste explicite de l'utilisateur : un appui
+   * sur une touche en est un, le chargement de la page n'en est pas un.
+   *
+   * @returns une promesse TOUJOURS resolue, accordee ou refusee. Elle
+   *   permet a l'appelant d'attendre l'issue sans avoir a la traiter :
+   *   le carnet s'en sert pour ne pas faire clignoter le panneau
+   *   d'accueil pendant les ~50 ms que prend le verrouillage.
+   */
+  requestLock(): Promise<void> {
+    try {
+      const request = this.canvas.requestPointerLock() as unknown;
+      /* Les navigateurs recents renvoient une promesse ; les anciens ne
+         renvoient rien. Chrome refuse le verrouillage pendant ~1 s apres
+         un appui sur Echap : ce refus n'est pas une erreur, le panneau
+         d'accueil reapparait et l'utilisateur recliquera. */
+      if (request instanceof Promise) return request.catch(() => undefined);
+      return Promise.resolve();
+    } catch {
+      /* navigateur sans Pointer Lock */
+      return Promise.resolve();
+    }
+  }
+
   isLocked(): boolean {
     return this.locked;
   }
@@ -172,17 +202,7 @@ export class Input {
        cliquer a cote du panneau d'interrogatoire ferait disparaitre le
        curseur, et le joueur ne pourrait plus choisir sa question. */
     if (!this.enabled) return;
-    // Le Pointer Lock exige un geste explicite de l'utilisateur : impossible
-    // de capturer la souris au chargement de la page.
-    try {
-      const request = this.canvas.requestPointerLock() as unknown;
-      // Les navigateurs recents renvoient une promesse : Chrome refuse le
-      // verrouillage pendant ~1 s apres un appui sur Echap. On ignore ce
-      // refus, l'utilisateur recliquera.
-      if (request instanceof Promise) request.catch(() => undefined);
-    } catch {
-      /* navigateur sans Pointer Lock : ignore */
-    }
+    this.requestLock();
   };
 
   private handlePointerLockChange = (): void => {

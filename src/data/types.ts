@@ -33,8 +33,17 @@ export type FactId = string;
 /** Geste ponctuel joue pendant une replique, puis relache. */
 export type Beat = 'agree' | 'deny' | 'dismiss' | 'think';
 
-/** Attitude persistante d'un personnage pendant l'entretien. */
-export type Mood = 'neutral' | 'guarded' | 'nervous' | 'hostile';
+/**
+ * Attitude persistante d'un personnage pendant l'entretien.
+ *
+ * Le tableau existe pour pouvoir VERIFIER une valeur a l'execution : une
+ * sauvegarde relue peut contenir n'importe quoi, et une humeur inventee
+ * ferait dire n'importe quoi au moteur, puisque certaines repliques
+ * n'existent que dans une humeur donnee. Le type en decoule, pour qu'il
+ * n'y ait toujours qu'une seule liste a maintenir.
+ */
+export const MOODS = ['neutral', 'guarded', 'nervous', 'hostile'] as const;
+export type Mood = (typeof MOODS)[number];
 
 /** Une replique. */
 export interface DialogueLine {

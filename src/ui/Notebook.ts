@@ -20,6 +20,15 @@
    dans Game.ts.
 
    -------------------------------------------------------------------
+   UNE SEULE INTERACTION (Phase 7B)
+   -------------------------------------------------------------------
+   Le carnet est en lecture seule, a une exception pres : « Recommencer
+   l'enquete », en pied de page, nettement separe du dossier. Effacer une
+   enquete est irreversible, donc il demande confirmation en deux temps,
+   et l'armement retombe des que le carnet se referme -- on ne laisse pas
+   un bouton dangereux arme dans le dos du joueur.
+
+   -------------------------------------------------------------------
    PLEIN ECRAN, ET POURQUOI
    -------------------------------------------------------------------
    Le carnet couvre toute la page, fond assombri compris. Ce n'est pas
@@ -31,8 +40,15 @@
 import type { CasebookSection, CasebookView } from '../game/Casebook';
 
 export class Notebook {
+  /** Appele quand le joueur confirme la remise a zero. */
+  onRestart: (() => void) | null = null;
+
   private readonly panel: HTMLDivElement;
   private readonly body: HTMLDivElement;
+  private readonly storageNote: HTMLParagraphElement;
+  private readonly restartRow: HTMLDivElement;
+  private readonly restartButton: HTMLButtonElement;
+  private readonly confirmRow: HTMLDivElement;
 
   constructor() {
     const layer = document.querySelector<HTMLDivElement>('#ui-layer');
@@ -55,8 +71,66 @@ export class Notebook {
     this.body = document.createElement('div');
     this.body.id = 'notebook-body';
 
-    this.panel.append(header, this.body);
+    /* Pied de page : le repere de conservation, et la seule action du
+       carnet. Separe du dossier par un filet, pour qu'on ne clique pas
+       dessus en croyant lire. */
+    const footer = document.createElement('div');
+    footer.id = 'notebook-footer';
+
+    this.storageNote = document.createElement('p');
+    this.storageNote.className = 'notebook-storage';
+    this.storageNote.textContent = 'Dossier conservé dans ce navigateur.';
+
+    this.restartButton = document.createElement('button');
+    this.restartButton.type = 'button';
+    this.restartButton.id = 'notebook-restart';
+    this.restartButton.textContent = 'Recommencer l’enquête';
+    this.restartButton.addEventListener('click', () => this.arm());
+    this.restartRow = document.createElement('div');
+    this.restartRow.className = 'notebook-action';
+    this.restartRow.appendChild(this.restartButton);
+
+    /* L'etape de confirmation. Deux boutons distincts : on ne transforme
+       pas le premier bouton en « confirmer », sans quoi un double-clic
+       malheureux effacerait la partie. */
+    const confirmText = document.createElement('p');
+    confirmText.className = 'notebook-confirm-text';
+    confirmText.textContent = 'Tout le dossier sera effacé. C’est définitif.';
+    const confirm = document.createElement('button');
+    confirm.type = 'button';
+    confirm.id = 'notebook-confirm';
+    confirm.textContent = 'Effacer définitivement';
+    confirm.addEventListener('click', () => {
+      this.disarm();
+      this.onRestart?.();
+    });
+    const cancel = document.createElement('button');
+    cancel.type = 'button';
+    cancel.id = 'notebook-cancel';
+    cancel.textContent = 'Annuler';
+    cancel.addEventListener('click', () => this.disarm());
+    this.confirmRow = document.createElement('div');
+    this.confirmRow.className = 'notebook-action is-hidden';
+    this.confirmRow.append(confirmText, confirm, cancel);
+
+    footer.append(this.storageNote, this.restartRow, this.confirmRow);
+
+    this.panel.append(header, this.body, footer);
     layer.appendChild(this.panel);
+  }
+
+  /**
+   * Dit au joueur si sa partie sera conservee.
+   *
+   * En navigation privee ou avec un quota nul, localStorage leve une
+   * exception : mieux vaut l'annoncer que laisser croire a une
+   * progression enregistree.
+   */
+  setSaving(available: boolean): void {
+    this.storageNote.textContent = available
+      ? 'Dossier conservé dans ce navigateur.'
+      : 'Ce navigateur ne conserve pas la partie : le dossier sera perdu en quittant.';
+    this.storageNote.classList.toggle('is-warning', !available);
   }
 
   get isOpen(): boolean {
@@ -66,6 +140,7 @@ export class Notebook {
   /** Ouvre le carnet sur ce contenu. */
   open(view: CasebookView): void {
     this.render(view);
+    this.disarm(); // jamais arme a l'ouverture
     this.panel.classList.remove('is-hidden');
     this.body.scrollTop = 0;
   }
@@ -80,6 +155,19 @@ export class Notebook {
 
   close(): void {
     this.panel.classList.add('is-hidden');
+    this.disarm(); // un bouton dangereux ne reste pas arme dans le dos du joueur
+  }
+
+  /** Premier temps : on demande confirmation, on n'efface rien. */
+  private arm(): void {
+    this.restartButton.blur(); // sinon Espace ou Entree le rejouerait
+    this.restartRow.classList.add('is-hidden');
+    this.confirmRow.classList.remove('is-hidden');
+  }
+
+  private disarm(): void {
+    this.restartRow.classList.remove('is-hidden');
+    this.confirmRow.classList.add('is-hidden');
   }
 
   dispose(): void {
