@@ -53,11 +53,39 @@ export function createState(): InvestigationState {
 export class GameState {
   readonly data: InvestigationState;
 
-  /** Appele a chaque modification. L'interface s'y branche. */
-  onChange: (() => void) | null = null;
+  /**
+   * Abonnes prevenus a chaque modification reelle de l'etat.
+   *
+   * -------------------------------------------------------------------
+   * POURQUOI UNE LISTE, ET NON UN SEUL RAPPEL
+   * -------------------------------------------------------------------
+   * C'etait un seul rappel jusqu'a la Phase 7A, et un seul lecteur en
+   * avait besoin : le releve ?etat=1. Le carnet en a besoin aussi. Avec
+   * un champ unique, le second branchement aurait ECRASE le premier --
+   * sans erreur, sans avertissement, et personne n'aurait vu que le
+   * releve avait cesse de se mettre a jour.
+   *
+   * On passe donc par subscribe(), qui rend une fonction de
+   * desabonnement. Deux lecteurs, deux abonnements, aucun conflit.
+   */
+  private readonly listeners = new Set<() => void>();
 
   constructor(data: InvestigationState = createState()) {
     this.data = data;
+  }
+
+  /**
+   * Ecoute les modifications de l'etat.
+   * @returns la fonction a appeler pour se desabonner.
+   */
+  subscribe(listener: () => void): () => void {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
+  }
+
+  /** Previent tout le monde. L'ordre des abonnes n'a aucune importance. */
+  private notify(): void {
+    for (const listener of this.listeners) listener();
   }
 
   // --- Lecture ------------------------------------------------------
@@ -135,7 +163,7 @@ export class GameState {
   setMood(character: CharacterId, mood: Mood): void {
     if (this.data.moods[character] === mood) return;
     this.data.moods[character] = mood;
-    this.onChange?.();
+    this.notify();
   }
 
   /** Ajoute un identifiant s'il n'y est pas deja. Renvoie true si ajoute. */
@@ -147,7 +175,7 @@ export class GameState {
     const list = this.data[key];
     if (list.includes(id)) return false;
     list.push(id);
-    this.onChange?.();
+    this.notify();
     return true;
   }
 }

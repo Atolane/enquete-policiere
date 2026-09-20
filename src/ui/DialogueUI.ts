@@ -41,6 +41,8 @@ export class DialogueUI {
   /** Appele quand le joueur avance dans les repliques. */
   onAdvance: (() => void) | null = null;
 
+  /** Vrai quand le carnet est ouvert par-dessus : voir setSuspended(). */
+  private suspended = false;
   private choices: DialogueTopic[] = [];
   private evidence: EvidenceOption[] = [];
   private typing: { full: string; shown: number; elapsed: number } | null = null;
@@ -82,6 +84,23 @@ export class DialogueUI {
 
   get isOpen(): boolean {
     return !this.panel.classList.contains('is-hidden');
+  }
+
+  /**
+   * Met le clavier et les clics de l'entretien EN SOMMEIL (Phase 7A).
+   *
+   * Le carnet peut s'ouvrir par-dessus un entretien. Sans ce sommeil,
+   * Echap serait recu ici -- cet ecouteur est installe avant celui de
+   * Game -- et mettrait fin a l'entretien alors que le joueur voulait
+   * seulement refermer son carnet. Les touches 1-9 et P poseraient des
+   * questions derriere le carnet, sans que rien ne l'explique.
+   *
+   * Le panneau reste VISIBLE : le joueur doit voir qu'il est toujours en
+   * entretien. Il est simplement sourd et aveugle le temps de la
+   * consultation.
+   */
+  setSuspended(suspended: boolean): void {
+    this.suspended = suspended;
   }
 
   open(name: string, role: string): void {
@@ -303,12 +322,13 @@ export class DialogueUI {
 
   private handlePanelClick = (): void => {
     // Un clic dans le panneau ne sert qu'a faire defiler les repliques.
+    if (this.suspended) return;
     if (this.choices.length > 0 || this.evidence.length > 0) return;
     this.onAdvance?.();
   };
 
   private handleKey = (event: KeyboardEvent): void => {
-    if (!this.isOpen) return;
+    if (!this.isOpen || this.suspended) return;
 
     if (event.code === 'Escape') {
       // Depuis la liste des elements, Echap revient aux questions.

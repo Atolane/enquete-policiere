@@ -109,6 +109,15 @@ export interface ClueEntry {
   prompt: string;
   /** Ce que l'inspecteur constate en l'examinant. */
   description: string;
+  /**
+   * Rubrique sous laquelle le carnet le classe : « La salle »,
+   * « Papiers »... (Phase 7A)
+   *
+   * Les declarations et les faits en avaient deja une ; les indices n'en
+   * avaient pas. Un dossier de trente pieces en vrac n'est pas un
+   * dossier, c'est un tas.
+   */
+  topic: string;
 }
 
 /**

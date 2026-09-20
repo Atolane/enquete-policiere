@@ -368,6 +368,9 @@ export function validateCase(data: CaseData): string[] {
     if (clue.description.trim() === '') {
       problems.push(`indice ${clue.id} : aucune description a lire`);
     }
+    if (clue.topic.trim() === '') {
+      problems.push(`indice ${clue.id} : aucune rubrique pour le carnet`);
+    }
     if (clue.description.length > 320) {
       problems.push(
         `indice ${clue.id} : description de ${clue.description.length} signes, ` +

@@ -3,7 +3,7 @@
 Petit jeu d'enquête policière 3D en vue FPS, jouable dans un navigateur.
 États-Unis, 1948. Ambiance film noir. Une seule affaire de meurtre.
 
-**État actuel : Phase 6B — les faits acquis.**
+**État actuel : Phase 7A — le carnet.**
 Une pièce de test en primitives (graybox), une caméra à la première personne,
 le déplacement ZQSD/WASD, la gravité, de vraies collisions (murs, escalier,
 rampe, passage étroit) l'observation d'objets (viseur, libellé,
@@ -16,7 +16,9 @@ version. Depuis la Phase 6A, **tout ce que le joueur lit d'un indice est écrit
 dans `src/data/`** : la scène 3D ne fournit plus que la géométrie et un
 identifiant. Depuis la 6B, l'enquête tient aussi des **faits acquis** — ce
 qu'elle a établi par ailleurs, qui ouvre des questions n'ayant aucun sens
-avant eux. Pas encore de carnet de police ni d'affaire définitive.
+avant eux. Et depuis la 7A, tout cela se consulte : un **carnet**
+s'ouvre à la touche `N`, en exploration comme au milieu d'un
+interrogatoire. Pas encore de sauvegarde ni d'affaire définitive.
 
 ### Commandes en jeu
 
@@ -29,7 +31,8 @@ avant eux. Pas encore de carnet de police ni d'affaire définitive.
 | clic | examiner l'objet visé / interroger un personnage |
 | `1`-`9` | choisir une question, ou un élément à présenter |
 | `P` | présenter un élément pendant un entretien |
-| `Échap` | revenir aux questions, puis terminer l'entretien |
+| `N` | ouvrir et refermer le carnet (même pendant un entretien) |
+| `Échap` | refermer le carnet, revenir aux questions, terminer l'entretien |
 | `Échap` | libérer la souris |
 
 Adresses de réglage :
@@ -364,6 +367,69 @@ autre (`supersedes`), l'ancienne reste dans l'état de l'enquête et reste
 présentable. Le jeu ne dit pas laquelle est la bonne ; c'est la contradiction,
 pas le moteur, qui informe le joueur.
 
+## Lire le dossier
+
+La touche `N` ouvre le carnet — en exploration **et** au milieu d'un
+interrogatoire, parce que relire une déclaration avant de décider quoi demander
+est le geste central du genre. `N` ou `Échap` le referment, et on retrouve
+exactement ce qu'on avait quitté, entretien en cours compris.
+
+Le carnet range les trois briques de l'enquête, et rien d'autre :
+
+| Rubrique | Groupée par |
+|---|---|
+| Indices | rubrique de l'indice (`ClueEntry.topic`) |
+| Déclarations | personne, avec sa qualité ; chaque entrée porte son sujet |
+| Faits acquis | rubrique du fait (`FactEntry.topic`) |
+
+### Le carnet ne résout rien. Il présente.
+
+C'est la règle de la phase, et elle a des conséquences visibles. Le carnet
+**ne trie pas** (l'ordre est celui dans lequel le joueur a appris les choses),
+**ne rapproche rien** entre indices et déclarations, **ne souligne rien**.
+
+Quand un témoin s'est reprise, les deux versions apparaissent dans la même
+entrée, dans l'ordre où il les a dites, séparées par un discret « Puis ». C'est
+un constat de chronologie — ce que le joueur a entendu de ses oreilles — et les
+deux textes portent **exactement le même balisage**. Rien ne dit laquelle était
+fausse : le carnet ne le sait pas, et ce n'est pas son travail.
+
+Quatre choses n'y figurent pas, volontairement : l'**humeur** des personnages
+(ce serait un jugement du moteur sur quelqu'un, alors que lire les gens est le
+travail du joueur), les **questions déjà posées** (une liste de courses, pas un
+dossier), les **identifiants techniques** et tout **score**. Elles restent
+visibles dans le relevé `?etat=1`, qui sert aux tests.
+
+### Priorités clavier
+
+Trois composants écoutent le clavier. À tout instant, un seul est réveillé pour
+une touche donnée — c'est ce qui rend l'ordre d'inscription des écouteurs sans
+importance :
+
+| Composant | Touches | Endormi par |
+|---|---|---|
+| `Input` | déplacement | `setEnabled(false)` dès qu'un panneau s'ouvre |
+| `DialogueUI` | `Échap`, `1`-`9`, `P`, Espace | `setSuspended(true)` quand le carnet s'ouvre par-dessus |
+| `Game` | `N` toujours, `Échap` seulement carnet ouvert | — |
+
+Sans ce sommeil explicite, `Échap` sur un carnet ouvert pendant un entretien
+aurait mis fin à l'entretien : l'écouteur de `DialogueUI` est installé avant
+celui de `Game` et l'aurait reçu le premier. C'est plus verbeux qu'un
+`stopImmediatePropagation()`, et beaucoup plus facile à relire.
+
+Le carnet met aussi l'entretien **réellement** en pause : sans cela, les
+silences continueraient de s'écouler et les répliques de défiler derrière lui.
+
+### Où le code se trouve
+
+```
+src/game/Casebook.ts   assemble le dossier (aucun DOM, aucun Three.js)
+src/ui/Notebook.ts     le dessine (ne connaît ni l'état ni le moteur)
+```
+
+Même séparation que `Interrogation` / `DialogueUI`. Le carnet ne touche pas au
+clavier : c'est `Game.ts` qui arbitre, seul.
+
 ## Organisation du code
 
 ```
@@ -410,6 +476,7 @@ réellement besoin.
 - [x] **Phase 5B** — présenter un indice, réactions, changement de version
 - [x] **Phase 6A** — l'indice devient une donnée : source unique, contrôle croisé
 - [x] **Phase 6B** — les faits acquis : catalogue, validation, conditions
-- [ ] Phase 7 — carnet de police et sauvegarde
+- [x] **Phase 7A** — le carnet : dossier consultable, rubriques, priorités clavier
+- [ ] Phase 7B — sauvegarde et reprise
 - [ ] Phase 8 — tranche verticale jouable
 - [ ] Phases 9 à 16 — contenu, lieux, ambiance, audio, finition

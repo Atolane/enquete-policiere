@@ -42,6 +42,7 @@ export class Hud {
   private locked = false;
   private infoVisible = false;
   private inDialogue = false;
+  private inNotebook = false;
 
   constructor() {
     const layer = document.querySelector<HTMLDivElement>('#ui-layer');
@@ -155,7 +156,28 @@ export class Hud {
   setLocked(locked: boolean, inDialogue = false): void {
     this.locked = locked;
     this.inDialogue = inDialogue;
-    this.lockPanel.classList.toggle('is-hidden', locked || inDialogue);
+    this.refreshOverlays();
+  }
+
+  /**
+   * Le carnet est-il ouvert ? (Phase 7A)
+   *
+   * Comme pour le reste, on ne touche a aucune classe ici : on note
+   * l'etat et on laisse refreshOverlays() decider. La Phase 2C a coute
+   * une regression du viseur precisement parce que deux endroits
+   * differents manipulaient sa classe.
+   */
+  setNotebookOpen(open: boolean): void {
+    this.inNotebook = open;
+    this.refreshOverlays();
+  }
+
+  /** Seul endroit qui decide de la visibilite du viseur ET du panneau. */
+  private refreshOverlays(): void {
+    this.lockPanel.classList.toggle(
+      'is-hidden',
+      this.locked || this.inDialogue || this.inNotebook,
+    );
     this.refreshCrosshair();
   }
 
@@ -199,8 +221,10 @@ export class Hud {
   private refreshCrosshair(): void {
     this.crosshair.classList.toggle(
       'is-hidden',
-      !this.locked || this.infoVisible || this.inDialogue,
+      !this.locked || this.infoVisible || this.inDialogue || this.inNotebook,
     );
+    // Le libelle d'action n'a rien a annoncer derriere le carnet.
+    if (this.inNotebook) this.promptLine.classList.add('is-hidden');
   }
 
   /**

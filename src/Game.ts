@@ -34,6 +34,8 @@ import { buildCollisionGeometry, triangleCount } from './world/collision';
 import { Hud } from './ui/Hud';
 import { DialogueUI } from './ui/DialogueUI';
 import { StateReport } from './ui/StateReport';
+import { Notebook } from './ui/Notebook';
+import { Casebook } from './game/Casebook';
 import { GameState } from './game/GameState';
 import { DialogueEngine, validateCase, validateSceneClues } from './game/dialogue';
 import { Interrogation } from './game/Interrogation';
@@ -46,10 +48,13 @@ import type { Character } from './world/Character';
  * C'est une variable minuscule mais tres importante : elle evite la
  * categorie de bugs la plus penible d'un jeu a la premiere personne,
  * celle ou l'on marche pendant une conversation ou l'on fait pivoter la
- * camera en cliquant dans un menu. Les modes 'dialogue' et 'notebook'
- * viendront s'ajouter ici plus tard.
+ * camera en cliquant dans un menu.
+ *
+ * 'notebook' est particulier : c'est le seul mode qui se superpose a un
+ * autre. On memorise donc d'ou l'on vient (modeBeforeNotebook) pour y
+ * revenir exactement, entretien en cours compris.
  */
-type GameMode = 'exploring' | 'examining' | 'dialogue';
+type GameMode = 'exploring' | 'examining' | 'dialogue' | 'notebook';
 
 export class Game {
   private readonly engine: Engine;
@@ -61,6 +66,18 @@ export class Game {
   private readonly hud: Hud;
   /** Releve d'etat, seulement si ?etat=1. null le reste du temps. */
   private readonly stateReport: StateReport | null;
+  private readonly notebook = new Notebook();
+  private readonly casebook: Casebook;
+  /** Le mode a retrouver en refermant le carnet. */
+  private modeBeforeNotebook: GameMode = 'exploring';
+  /**
+   * Faux tant que les modeles se telechargent.
+   *
+   * Sans ce verrou, appuyer sur N pendant l'ecran de chargement ouvrait
+   * le carnet par-dessus lui : le joueur se retrouvait avec un carnet
+   * qu'il ne voyait pas et des commandes suspendues.
+   */
+  private ready = false;
 
   /* --- Enquete (Phase 5A) --- */
   private readonly state = new GameState();
@@ -149,12 +166,19 @@ export class Game {
     this.interrogation = new Interrogation(this.dialogue, this.state, this.dialogueUI);
     this.dialogueUI.onLeave = () => this.endInterrogation();
 
-    /* Le releve suit l'etat. GameState previent a chaque modification
-       reelle : inutile de le redessiner a chaque image. */
+    this.casebook = new Casebook(this.dialogue, this.state);
+
+    /* DEUX abonnes a l'etat, et c'est tout l'interet de la liste : le
+       carnet et le releve se mettent a jour sans se marcher dessus.
+       GameState previent a chaque modification reelle, donc inutile de
+       redessiner quoi que ce soit a chaque image. */
+    this.state.subscribe(() => this.notebook.refresh(this.casebook.build()));
     if (this.stateReport) {
-      this.state.onChange = () => this.refreshStateReport();
+      this.state.subscribe(() => this.refreshStateReport());
       this.refreshStateReport();
     }
+
+    window.addEventListener('keydown', this.handleKey);
 
     this.interaction = new InteractionSystem(this.room.scene, this.engine.camera);
     this.interaction.onTargetChange = (target) => {
@@ -209,6 +233,7 @@ export class Game {
 
     this.hud.setLoadingProgress(1, '');
     this.hud.hideLoading();
+    this.ready = true;
   }
 
   /**
@@ -259,6 +284,8 @@ export class Game {
     this.collider?.dispose();
     this.models.dispose();
     this.stateReport?.dispose();
+    this.notebook.dispose();
+    window.removeEventListener('keydown', this.handleKey);
   }
 
   // -----------------------------------------------------------------
@@ -270,6 +297,80 @@ export class Game {
     if (this.mode === 'examining') this.closeInfo();
     else if (this.mode === 'exploring') this.interaction.activate();
     // En mode dialogue la souris est libre : les clics vont au panneau.
+    // Carnet ouvert : le panneau couvre tout, rien n'arrive jusqu'ici.
+  }
+
+  // --- Carnet (Phase 7A) --------------------------------------------
+
+  /* ===================================================================
+     PRIORITES CLAVIER
+
+     Trois composants ecoutent le clavier, et il faut savoir qui recoit
+     quoi -- sans quoi Echap fait deux choses a la fois :
+
+       Input        les touches de deplacement. Endormi par
+                    setEnabled(false) des qu'un panneau s'ouvre.
+       DialogueUI   Echap, 1-9, P, Espace, PENDANT un entretien. Endormi
+                    par setSuspended(true) quand le carnet s'ouvre
+                    par-dessus.
+       Game (ici)   N en permanence, et Echap UNIQUEMENT quand le carnet
+                    est ouvert.
+
+     L'ordre d'inscription des ecouteurs ne joue donc aucun role : a tout
+     instant, un seul est reveille pour une touche donnee. C'est plus
+     verbeux qu'un stopImmediatePropagation(), et beaucoup plus facile a
+     relire dans six mois.
+
+     Ce qui reste hors du carnet : Echap en exploration continue de
+     rendre la souris (c'est le navigateur qui le fait), et Echap en
+     entretien continue d'y mettre fin.
+     =================================================================== */
+  private readonly handleKey = (event: KeyboardEvent): void => {
+    if (event.code === 'KeyN') {
+      event.preventDefault();
+      if (this.mode === 'notebook') this.closeNotebook();
+      else this.openNotebook();
+      return;
+    }
+
+    if (event.code === 'Escape' && this.mode === 'notebook') {
+      event.preventDefault();
+      this.closeNotebook();
+    }
+  };
+
+  /**
+   * Ouvre le carnet. Possible en exploration ET pendant un entretien.
+   *
+   * On ne touche PAS au Pointer Lock : le carnet ne demande aucun clic,
+   * et le rendre puis le reprendre imposerait au joueur de recliquer,
+   * plus le delai d'une seconde de Chrome. On suspend les commandes,
+   * exactement comme la fiche d'un objet examine.
+   */
+  private openNotebook(): void {
+    if (!this.ready) return; // la partie n'a pas encore commence
+    if (this.mode !== 'exploring' && this.mode !== 'dialogue') return;
+
+    this.modeBeforeNotebook = this.mode;
+    this.mode = 'notebook';
+    this.input.setEnabled(false);
+    this.interaction.clear();
+    this.dialogueUI.setSuspended(true);
+    this.hud.setNotebookOpen(true);
+    this.notebook.open(this.casebook.build());
+  }
+
+  /** Referme le carnet et rend le jeu exactement comme il etait. */
+  private closeNotebook(): void {
+    if (this.mode !== 'notebook') return;
+
+    this.mode = this.modeBeforeNotebook;
+    this.notebook.close();
+    this.hud.setNotebookOpen(false);
+    this.dialogueUI.setSuspended(false);
+    /* Pendant un entretien les commandes etaient DEJA suspendues : on ne
+       les rend qu'a celui qui explorait. */
+    this.input.setEnabled(this.mode === 'exploring');
   }
 
   // --- Interrogatoire (Phase 5A) ------------------------------------
@@ -474,7 +575,12 @@ export class Game {
     this.player.update(deltaTime, this.input, this.engine.camera);
     if (this.mode === 'dialogue') this.updateFraming(deltaTime);
     this.updateCharacters(deltaTime);
-    this.interrogation.update(deltaTime);
+
+    /* Le carnet met REELLEMENT l'entretien en pause. Sans cette
+       condition, les silences continueraient de s'ecouler et les
+       repliques de defiler derriere le carnet : le joueur refermerait
+       sur une reponse qu'il n'a jamais lue. */
+    if (this.mode !== 'notebook') this.interrogation.update(deltaTime);
 
     // On ne cherche une cible que si le joueur peut reellement agir.
     if (this.mode === 'exploring' && this.input.isLocked()) {

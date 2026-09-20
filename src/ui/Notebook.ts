@@ -1,0 +1,173 @@
+/* ===================================================================
+   src/ui/Notebook.ts
+
+   LE CARNET, cote affichage.
+
+   Il dessine ce que game/Casebook.ts a prepare, et rien de plus : il ne
+   lit pas l'etat de l'enquete, il ne connait ni GameState ni le moteur
+   de dialogue. On lui donne une vue, il la met en page.
+
+   -------------------------------------------------------------------
+   IL NE TOUCHE PAS AU CLAVIER
+   -------------------------------------------------------------------
+   Et c'est deliberé. Trois ecouteurs de clavier coexistent deja dans le
+   jeu : Input (le deplacement) et DialogueUI (Echap, 1-9, P, Espace).
+   Un quatrieme, ici, aurait rendu impossible de dire qui recoit Echap
+   quand le carnet est ouvert PAR-DESSUS un entretien.
+
+   C'est donc Game.ts qui arbitre : lui seul ecoute N et Echap pour le
+   carnet, et lui seul decide. Voir le commentaire « PRIORITES CLAVIER »
+   dans Game.ts.
+
+   -------------------------------------------------------------------
+   PLEIN ECRAN, ET POURQUOI
+   -------------------------------------------------------------------
+   Le carnet couvre toute la page, fond assombri compris. Ce n'est pas
+   un effet de style : un panneau plus petit laisserait le panneau
+   d'interrogatoire cliquable derriere lui, et un clic a cote ferait
+   defiler une replique sans que le joueur comprenne pourquoi.
+   =================================================================== */
+
+import type { CasebookSection, CasebookView } from '../game/Casebook';
+
+export class Notebook {
+  private readonly panel: HTMLDivElement;
+  private readonly body: HTMLDivElement;
+
+  constructor() {
+    const layer = document.querySelector<HTMLDivElement>('#ui-layer');
+    if (!layer) throw new Error('Couche #ui-layer introuvable dans index.html');
+
+    this.panel = document.createElement('div');
+    this.panel.id = 'notebook-panel';
+    this.panel.classList.add('is-hidden');
+
+    const header = document.createElement('div');
+    header.id = 'notebook-header';
+    const title = document.createElement('p');
+    title.className = 'notebook-title';
+    title.textContent = 'Dossier d’enquête';
+    const hint = document.createElement('p');
+    hint.className = 'notebook-hint';
+    hint.textContent = 'N ou Échap pour refermer';
+    header.append(title, hint);
+
+    this.body = document.createElement('div');
+    this.body.id = 'notebook-body';
+
+    this.panel.append(header, this.body);
+    layer.appendChild(this.panel);
+  }
+
+  get isOpen(): boolean {
+    return !this.panel.classList.contains('is-hidden');
+  }
+
+  /** Ouvre le carnet sur ce contenu. */
+  open(view: CasebookView): void {
+    this.render(view);
+    this.panel.classList.remove('is-hidden');
+    this.body.scrollTop = 0;
+  }
+
+  /** Met a jour le contenu sans changer la visibilite. */
+  refresh(view: CasebookView): void {
+    if (!this.isOpen) return;
+    const scroll = this.body.scrollTop;
+    this.render(view);
+    this.body.scrollTop = scroll;
+  }
+
+  close(): void {
+    this.panel.classList.add('is-hidden');
+  }
+
+  dispose(): void {
+    this.panel.remove();
+  }
+
+  private render(view: CasebookView): void {
+    this.body.replaceChildren(
+      rubric(`Indices (${view.counts.clues})`, view.clues, 'Rien de ramassé pour l’instant.'),
+      rubric(
+        `Déclarations (${view.counts.statements})`,
+        view.statements,
+        'Personne n’a encore rien dit.',
+      ),
+      rubric(`Faits acquis (${view.counts.facts})`, view.facts, 'Rien d’établi pour l’instant.'),
+    );
+  }
+}
+
+/** Une des trois rubriques du dossier. */
+function rubric(title: string, sections: CasebookSection[], empty: string): HTMLElement {
+  const block = document.createElement('section');
+  block.className = 'notebook-rubric';
+
+  const heading = document.createElement('h2');
+  heading.className = 'rubric-title';
+  heading.textContent = title;
+  block.appendChild(heading);
+
+  if (sections.length === 0) {
+    const nothing = document.createElement('p');
+    nothing.className = 'notebook-empty';
+    nothing.textContent = empty;
+    block.appendChild(nothing);
+    return block;
+  }
+
+  for (const section of sections) block.appendChild(renderSection(section));
+  return block;
+}
+
+function renderSection(section: CasebookSection): HTMLDivElement {
+  const group = document.createElement('div');
+  group.className = 'notebook-section';
+
+  const heading = document.createElement('h3');
+  heading.className = 'section-title';
+  heading.textContent = section.title;
+  group.appendChild(heading);
+
+  if (section.subtitle) {
+    const role = document.createElement('p');
+    role.className = 'section-subtitle';
+    role.textContent = section.subtitle;
+    group.appendChild(role);
+  }
+
+  for (const entry of section.entries) {
+    const item = document.createElement('div');
+    item.className = 'notebook-entry';
+
+    if (entry.label) {
+      const label = document.createElement('p');
+      label.className = 'entry-label';
+      label.textContent = entry.label;
+      item.appendChild(label);
+    }
+
+    /* Les versions successives, dans l'ordre entendu. La premiere n'a
+       pas de mention ; les suivantes portent « Puis », qui est un
+       CONSTAT de chronologie -- pas un verdict. Les deux textes portent
+       la meme classe : rien, dans le balisage, ne distingue une version
+       abandonnee d'une version maintenue. */
+    for (const [index, paragraph] of entry.paragraphs.entries()) {
+      if (index > 0) {
+        const then = document.createElement('p');
+        then.className = 'entry-then';
+        then.textContent = 'Puis';
+        item.appendChild(then);
+      }
+      const text = document.createElement('p');
+      text.className = 'entry-text';
+      text.textContent = paragraph;
+      item.appendChild(text);
+    }
+
+    group.appendChild(item);
+  }
+
+  return group;
+}

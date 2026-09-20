@@ -60,6 +60,7 @@ export const demoCase: CaseData = {
       id: 'ashtray',
       name: 'Cendrier',
       prompt: 'Examiner le cendrier',
+      topic: 'La salle',
       description:
         'Un mégot taché de rouge à lèvres, écrasé récemment. ' +
         'Quelqu\u2019un est resté ici après la fermeture.',
@@ -68,6 +69,7 @@ export const demoCase: CaseData = {
       id: 'report',
       name: 'Rapport dactylographié',
       prompt: 'Lire le document',
+      topic: 'Papiers',
       description:
         'Un rapport daté du 12 novembre 1948. ' +
         'Le nom du signataire a été soigneusement découpé au rasoir.',
@@ -76,6 +78,7 @@ export const demoCase: CaseData = {
       id: 'phone',
       name: 'Téléphone décroché',
       prompt: 'Examiner le téléphone',
+      topic: 'La salle',
       description:
         'Le combiné est décroché et posé de travers. ' +
         'La ligne est muette : quelqu\u2019un a appelé, puis n\u2019a pas raccroché.',
@@ -84,6 +87,7 @@ export const demoCase: CaseData = {
       id: 'press_camera',
       name: 'Appareil photo de presse',
       prompt: 'Examiner l\u2019appareil photo',
+      topic: 'Objets',
       description:
         'Un appareil à soufflet monté sur trépied, du modèle qu\u2019utilisent ' +
         'les reporters de faits divers. Le magasin est vide : les plaques ont été retirées.',
