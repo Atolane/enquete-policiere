@@ -26,6 +26,7 @@ import type {
   ClueId,
   DialogueLine,
   DialogueTopic,
+  Effect,
   Evidence,
   FactEntry,
   FactId,
@@ -34,7 +35,7 @@ import type {
   StatementView,
   TopicId,
 } from '../data/types';
-import { evidenceKey } from '../data/types';
+import { evidenceKey, MOODS } from '../data/types';
 import type { GameState } from './GameState';
 
 /** Ce que l'interface affiche pour un element presentable. */
@@ -302,6 +303,16 @@ export function validateCase(data: CaseData): string[] {
   const topics = new Set(data.topics.map((t) => t.id));
   const statements = new Set(data.statements.map((s) => s.id));
 
+  /* Tout ce qui existe reellement dans l'affaire, rassemble une fois.
+     C'est ce que checkCondition() et checkEffects() confrontent aux
+     identifiants cites par les questions et par les reactions. */
+  const known: KnownIds = {
+    clues: new Set(data.clues.map((c) => c.id)),
+    facts: new Set(data.facts.map((f) => f.id)),
+    topics,
+    statements,
+  };
+
   const seenTopics = new Set<string>();
   for (const topic of data.topics) {
     if (seenTopics.has(topic.id)) problems.push(`question en double : ${topic.id}`);
@@ -313,15 +324,28 @@ export function validateCase(data: CaseData): string[] {
     for (const id of topic.records ?? []) {
       if (!statements.has(id)) problems.push(`${topic.id} : declaration inconnue "${id}"`);
     }
-    for (const id of topic.effects?.unlockTopics ?? []) {
-      if (!topics.has(id)) problems.push(`${topic.id} : question a debloquer inconnue "${id}"`);
-    }
+    checkCondition(topic.id, topic.requires, known, problems);
+    checkEffects(topic.id, topic.effects, known, problems);
+
+    /* AUTO-REFERENCES (Phase 7C-1). Deux formes, de gravite tres
+       differente, donc deux messages distincts. */
     for (const id of topic.requires?.topicsAsked ?? []) {
-      if (!topics.has(id)) problems.push(`${topic.id} : prerequis inconnu "${id}"`);
+      if (id === topic.id) {
+        problems.push(
+          `${topic.id} : s'attend elle-meme (topicsAsked). Elle exige d'avoir ` +
+            "deja ete posee pour apparaitre : elle n'apparaitra JAMAIS.",
+        );
+      }
     }
-    for (const id of topic.requires?.statementsHeard ?? []) {
-      if (!statements.has(id)) problems.push(`${topic.id} : declaration requise inconnue "${id}"`);
+    for (const id of topic.requires?.topicsNotAsked ?? []) {
+      if (id === topic.id) {
+        problems.push(
+          `${topic.id} : se cite dans topicsNotAsked. C'est sans danger, mais ` +
+            "redondant : « once: true » fait deja exactement cela.",
+        );
+      }
     }
+
     if (topic.lines.length === 0) problems.push(`${topic.id} : aucune replique`);
     if (topic.lines.length > 5) {
       problems.push(`${topic.id} : ${topic.lines.length} repliques, c'est trop long a lire`);
@@ -349,11 +373,15 @@ export function validateCase(data: CaseData): string[] {
     if (statement.supersedes === statement.id) {
       problems.push(`declaration ${statement.id} : se remplace elle-meme`);
     }
+    /* Les indices et les faits etaient deja controles ; les declarations
+       ne l'etaient pas. Sans rubrique, le carnet affiche une section
+       sans titre. */
+    if (statement.topic.trim() === '') {
+      problems.push(`declaration ${statement.id} : aucune rubrique`);
+    }
   }
 
   // --- Indices et reactions (Phase 5B, etendu en 6A) ---
-  const clues = new Set(data.clues.map((c) => c.id));
-
   const seenClues = new Set<string>();
   for (const clue of data.clues) {
     if (seenClues.has(clue.id)) problems.push(`indice en double : ${clue.id}`);
@@ -387,27 +415,12 @@ export function validateCase(data: CaseData): string[] {
     }
   }
   // --- Faits acquis (Phase 6B) ---
-  const facts = new Set(data.facts.map((f) => f.id));
-
   const seenFacts = new Set<string>();
   for (const fact of data.facts) {
     if (seenFacts.has(fact.id)) problems.push(`fait en double : ${fact.id}`);
     seenFacts.add(fact.id);
     if (fact.text.trim() === '') problems.push(`fait ${fact.id} : aucun enonce`);
     if (fact.topic.trim() === '') problems.push(`fait ${fact.id} : aucune rubrique`);
-  }
-
-  /* Les faits cites par les questions et par les reactions doivent
-     exister. Sans ce controle, un "revealFacts" mal orthographie
-     enregistre un fait fantome, et la question qui l'attend ne s'ouvre
-     JAMAIS -- sans le moindre message. C'est la faute la plus couteuse
-     du lot, parce qu'elle ressemble a un choix de conception. */
-  for (const topic of data.topics) {
-    checkFacts(`${topic.id}`, topic.effects?.revealFacts, topic.requires?.facts, facts, problems);
-  }
-  for (const [index, reaction] of data.reactions.entries()) {
-    const where = `reaction ${index + 1} (${reaction.character})`;
-    checkFacts(where, reaction.effects?.revealFacts, reaction.requires?.facts, facts, problems);
   }
 
   /* Un fait que rien ne revele jamais est du contenu mort, exactement
@@ -437,7 +450,7 @@ export function validateCase(data: CaseData): string[] {
     if (reaction.clue && reaction.statement) {
       problems.push(`${where} : designe a la fois un indice et une declaration`);
     }
-    if (reaction.clue && !clues.has(reaction.clue)) {
+    if (reaction.clue && !known.clues.has(reaction.clue)) {
       problems.push(`${where} : indice inconnu "${reaction.clue}"`);
     }
     if (reaction.statement && !statements.has(reaction.statement)) {
@@ -446,9 +459,14 @@ export function validateCase(data: CaseData): string[] {
     for (const id of reaction.records ?? []) {
       if (!statements.has(id)) problems.push(`${where} : declaration inconnue "${id}"`);
     }
-    for (const id of reaction.effects?.unlockTopics ?? []) {
-      if (!topics.has(id)) problems.push(`${where} : question a debloquer inconnue "${id}"`);
-    }
+    /* Les conditions d'une reaction n'etaient pratiquement PAS
+       controlees jusqu'a la Phase 7C-1 : seul « facts » l'etait. Une
+       reaction dont le prerequis est mal orthographie ne se declenche
+       jamais, et le personnage sert sa reponse generique -- ce qui
+       ressemble a s'y meprendre a une intention d'ecriture. */
+    checkCondition(where, reaction.requires, known, problems);
+    checkEffects(where, reaction.effects, known, problems);
+
     if (reaction.lines.length === 0) problems.push(`${where} : aucune replique`);
   }
 
@@ -511,25 +529,97 @@ export function validateCase(data: CaseData): string[] {
  * @param idsInScene les identifiants d'indices reellement poses dans le
  *   decor, tels que la scene les rapporte.
  */
+/** Tout ce qui existe reellement dans l'affaire. */
+interface KnownIds {
+  clues: Set<string>;
+  facts: Set<string>;
+  topics: Set<string>;
+  statements: Set<string>;
+}
+
 /**
- * Controle les faits cites par une question ou une reaction.
+ * Controle TOUT ce qu'une condition cite (Phase 7C-1).
  *
- * Les deux sens comptent : celui qu'elle REVELE et celui qu'elle
- * EXIGE. Un fait exige qui n'existe pas rend la question inatteignable ;
- * un fait revele qui n'existe pas enregistre un fantome.
+ * -------------------------------------------------------------------
+ * POURQUOI UNE SEULE FONCTION, ET POURQUOI ELLE ARRIVE SI TARD
+ * -------------------------------------------------------------------
+ * Condition a six champs. Jusqu'ici le validateur n'en lisait que
+ * quatre combinaisons sur douze : trois sur les questions, une seule
+ * sur les reactions. Huit cases restaient vides, et deux d'entre elles
+ * etaient deja utilisees par le suspect de test.
+ *
+ * Ces fautes-la sont les plus couteuses de toutes parce qu'elles ne
+ * cassent RIEN. Une question dont le prerequis n'existe pas n'apparait
+ * simplement jamais ; une reaction mal conditionnee laisse le
+ * personnage servir sa reponse generique. Dans les deux cas le jeu a
+ * l'air de fonctionner, et l'auteur cherche pendant une heure ce qu'il
+ * a mal ecrit dans son dialogue.
+ *
+ * Les questions et les reactions passent desormais par ici toutes les
+ * deux : il n'y a plus qu'un seul endroit a lire, et plus aucun moyen
+ * d'en oublier un.
  */
-function checkFacts(
+function checkCondition(
   where: string,
-  revealed: string[] | undefined,
-  required: string[] | undefined,
-  known: Set<string>,
+  need: Condition | undefined,
+  known: KnownIds,
   problems: string[],
 ): void {
-  for (const id of revealed ?? []) {
-    if (!known.has(id)) problems.push(`${where} : fait a reveler inconnu "${id}"`);
+  if (!need) return;
+
+  for (const id of need.clues ?? []) {
+    if (!known.clues.has(id)) problems.push(`${where} : indice requis inconnu "${id}"`);
   }
-  for (const id of required ?? []) {
-    if (!known.has(id)) problems.push(`${where} : fait requis inconnu "${id}"`);
+  for (const id of need.facts ?? []) {
+    if (!known.facts.has(id)) problems.push(`${where} : fait requis inconnu "${id}"`);
+  }
+  for (const id of need.topicsAsked ?? []) {
+    if (!known.topics.has(id)) problems.push(`${where} : prerequis inconnu "${id}"`);
+  }
+  for (const id of need.topicsNotAsked ?? []) {
+    if (!known.topics.has(id)) {
+      problems.push(`${where} : prerequis « pas encore posee » inconnu "${id}"`);
+    }
+  }
+  for (const id of need.statementsHeard ?? []) {
+    if (!known.statements.has(id)) {
+      problems.push(`${where} : declaration requise inconnue "${id}"`);
+    }
+  }
+
+  /* Les humeurs sont des VALEURS, pas des identifiants : on les
+     confronte a MOODS, seule liste qui fasse foi. Une humeur inventee
+     ne leverait aucune erreur -- la condition serait simplement
+     toujours fausse, et la replique jamais jouee. */
+  for (const mood of need.mood ?? []) {
+    if (!(MOODS as readonly string[]).includes(mood)) {
+      problems.push(
+        `${where} : humeur inconnue "${mood}" (possibles : ${MOODS.join(', ')})`,
+      );
+    }
+  }
+}
+
+/**
+ * Controle ce qu'un effet cite.
+ *
+ * Meme raisonnement que pour les conditions, en sens inverse : un fait
+ * revele qui n'existe pas enregistre un fantome, et une question a
+ * debloquer qui n'existe pas ne debloque rien.
+ */
+function checkEffects(
+  where: string,
+  effects: Effect | undefined,
+  known: KnownIds,
+  problems: string[],
+): void {
+  if (!effects) return;
+
+  for (const id of effects.revealFacts ?? []) {
+    if (!known.facts.has(id)) problems.push(`${where} : fait a reveler inconnu "${id}"`);
+  }
+  for (const id of effects.unlockTopics ?? []) {
+    if (!known.topics.has(id)) problems.push(`${where} : question a debloquer inconnue "${id}"`);
   }
 }
 

@@ -3,7 +3,7 @@
 Petit jeu d'enquête policière 3D en vue FPS, jouable dans un navigateur.
 États-Unis, 1948. Ambiance film noir. Une seule affaire de meurtre.
 
-**État actuel : Phase 7B — sauvegarde et reprise.**
+**État actuel : Phase 7C-1 — validation complète des conditions.**
 Une pièce de test en primitives (graybox), une caméra à la première personne,
 le déplacement ZQSD/WASD, la gravité, de vraies collisions (murs, escalier,
 rampe, passage étroit) l'observation d'objets (viseur, libellé,
@@ -369,6 +369,43 @@ autre (`supersedes`), l'ancienne reste dans l'état de l'enquête et reste
 présentable. Le jeu ne dit pas laquelle est la bonne ; c'est la contradiction,
 pas le moteur, qui informe le joueur.
 
+### Ce que le validateur refuse dans une condition
+
+`Condition` a six champs. Jusqu'à la Phase 7C-1, le validateur n'en lisait que
+**quatre combinaisons sur douze** — trois sur les questions, une seule sur les
+réactions. Les huit autres passaient en silence, et deux d'entre elles étaient
+déjà utilisées par le suspect de test.
+
+Ces fautes-là sont les plus coûteuses parce qu'elles ne **cassent rien**. Une
+question dont le prérequis n'existe pas n'apparaît simplement jamais ; une
+réaction mal conditionnée laisse le personnage servir sa réponse générique. Le
+jeu a l'air de fonctionner, et l'auteur cherche pendant une heure ce qu'il a
+mal écrit dans son dialogue.
+
+Les six champs sont désormais contrôlés, sur les questions **et** sur les
+réactions, par une seule fonction partagée :
+
+| Champ | Contrôle |
+|---|---|
+| `clues`, `facts`, `topicsAsked`, `topicsNotAsked`, `statementsHeard` | l'identifiant existe dans l'affaire |
+| `mood` | la valeur est l'une des quatre humeurs possibles |
+
+Une humeur est une **valeur**, pas un identifiant : elle est confrontée à
+`MOODS`, seule liste qui fasse foi. Une humeur inventée ne lèverait aucune
+erreur — la condition serait simplement toujours fausse, et la réplique jamais
+jouée.
+
+Les effets (`revealFacts`, `unlockTopics`) passent par la même mécanique, en
+sens inverse : un fait révélé qui n'existe pas enregistre un fantôme.
+
+**Deux auto-références sont signalées**, avec des messages différents parce
+qu'elles n'ont pas la même gravité :
+
+| Forme | Effet | Traitement |
+|---|---|---|
+| `topicsAsked` contient son propre `id` | la question exige d'avoir déjà été posée : **elle n'apparaîtra jamais** | faute franche |
+| `topicsNotAsked` contient son propre `id` | sans danger : c'est ce que `once: true` fait déjà | signalé comme redondance |
+
 ## Lire le dossier
 
 La touche `N` ouvre le carnet — en exploration **et** au milieu d'un
@@ -523,5 +560,7 @@ réellement besoin.
 - [x] **Phase 6B** — les faits acquis : catalogue, validation, conditions
 - [x] **Phase 7A** — le carnet : dossier consultable, rubriques, priorités clavier
 - [x] **Phase 7B** — sauvegarde et reprise, tolérante aux sauvegardes abîmées
+- [x] **Phase 7C-1** — validation complète des conditions et des effets
+- [ ] Phase 7C-2 — rubriques d'indices : catalogue de lieux
 - [ ] Phase 8 — tranche verticale jouable
 - [ ] Phases 9 à 16 — contenu, lieux, ambiance, audio, finition
