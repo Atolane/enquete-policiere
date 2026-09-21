@@ -214,6 +214,43 @@ export class TestRoomScene {
 
     // Table a 0,75 m : reference d'echelle (hauteur reelle d'une table).
     this.addBox([1.6, 0.08, 0.9], [-4.5, 0.75, 3.5], this.materials.wood);
+
+    this.buildBackRoom();
+  }
+
+  /**
+   * LE LOCAL ARRIERE (Phase 9, tranche 6).
+   *
+   * Quatre cloisons et une etagere : de quoi faire un endroit ou l'on
+   * entre, et d'ou l'on ressort. C'est tout ce qu'il faut. Le local
+   * existe dans l'affaire depuis la premiere tranche -- il ferme a
+   * cle, deux personnes en ont une, et Nino y a vu le gerant prendre
+   * quelque chose sur l'etagere du haut. Il n'avait simplement aucun
+   * lieu.
+   *
+   * Aucun nouvel asset : des boites, comme le reste de cette piece.
+   * Les cloisons montent a 2,20 m -- au-dessus des yeux du joueur
+   * (1,65 m) : on ne voit pas l'etagere depuis la salle, il faut
+   * entrer. L'ouverture fait 1 m, soit dix centimetres de plus que le
+   * passage etroit de la Phase 2B, qui se franchit deja sans effort.
+   */
+  private buildBackRoom(): void {
+    const m = this.materials.wall;
+    const HAUTEUR = 2.2;
+
+    // Les deux cotes, du mur ouest jusqu'a la cloison de facade.
+    this.addBox([1.8, HAUTEUR, 0.15], [-5.1, HAUTEUR / 2, 0.4], m);
+    this.addBox([1.8, HAUTEUR, 0.15], [-5.1, HAUTEUR / 2, 2.8], m);
+
+    /* La facade, en deux morceaux : l'ouverture est ce qui reste entre
+       eux, de z = 1,1 a z = 2,1. */
+    this.addBox([0.15, HAUTEUR, 0.7], [-4.2, HAUTEUR / 2, 0.75], m);
+    this.addBox([0.15, HAUTEUR, 0.7], [-4.2, HAUTEUR / 2, 2.45], m);
+
+    /* L'etagere du haut, celle dont parle Nino. A 1,25 m : assez haut
+       pour qu'on y pose sans se baisser, assez bas pour qu'on voie ce
+       qui s'y trouve. */
+    this.addBox([1.0, 0.06, 0.35], [-5.4, 1.25, 1.6], this.materials.wood);
   }
 
   // -----------------------------------------------------------------
@@ -314,6 +351,16 @@ export class TestRoomScene {
     );
     bottle.position.set(-5.0, 0.13, 4.15);
     this.makeExaminable(bottle, { kind: 'clue', clueId: 'bouteille_anisette' });
+
+    /* La trace sur l'etagere : un disque clair dans la poussiere. Un
+       objet a part entiere, pose a plat sur la planche -- ce que le
+       rayon touche, c'est lui, et non l'etagere. */
+    const ring = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.09, 0.09, 0.014, 18),
+      this.materials.object,
+    );
+    ring.position.set(-5.4, 1.29, 1.6);
+    this.makeExaminable(ring, { kind: 'clue', clueId: 'trace_etagere' });
 
     // --- 2. Un document, pose sur la grande caisse ---
     const document = new THREE.Mesh(

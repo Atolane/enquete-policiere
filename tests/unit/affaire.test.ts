@@ -28,11 +28,12 @@ test('l affaire passe le validateur sans un seul probleme', () => {
 
 test('la tranche en cours a la taille annoncee', () => {
   assert.equal(dernierService.characters.length, 5);
-  assert.equal(dernierService.clues.length, 5);
-  assert.equal(dernierService.facts.length, 14);
-  assert.equal(dernierService.statements.length, 31);
-  assert.equal(dernierService.topics.length, 34);
-  assert.equal(dernierService.reactions.length, 14);
+  assert.equal(dernierService.clues.length, 6);
+  assert.equal(dernierService.clueRubrics.length, 2);
+  assert.equal(dernierService.facts.length, 17);
+  assert.equal(dernierService.statements.length, 33);
+  assert.equal(dernierService.topics.length, 36);
+  assert.equal(dernierService.reactions.length, 18);
 });
 
 test('la reprise d Enzo remplace bien sa premiere version', () => {
@@ -408,6 +409,169 @@ for (const [mot, raison] of interditsDoyle) {
     assert.equal(paroles('doyle').includes(mot), false);
   });
 }
+
+/* ===================================================================
+   LA CONTRE-EPREUVE
+
+   Le second resultat est plus dangereux que le premier, parce qu'il
+   ressemble encore davantage a une preuve. « Compatibles » est un mot
+   de chimiste, et un joueur presse le lira « identiques ». Le jeu ne
+   doit pas l'y aider : la phrase porte ses reserves, et le moteur n'en
+   tire toujours rien.
+   =================================================================== */
+
+const contreEpreuve = () => {
+  const fait = dernierService.facts.find((f) => f.id === 'fait_labo_contre_epreuve');
+  const dite = dernierService.statements.find((s) => s.id === 'doyle_contre_epreuve');
+  const question = dernierService.topics.find((t) => t.id === 'doyle_contre_epreuve');
+  assert.notEqual(fait, undefined);
+  assert.notEqual(dite, undefined);
+  assert.notEqual(question, undefined);
+  return { fait: fait!, dite: dite!, question: question! };
+};
+
+test('la contre-epreuve dit « compatibles », et ce qu elle n etablit pas', () => {
+  const { fait, dite } = contreEpreuve();
+  for (const texte of [fait.text, dite.text]) {
+    assert.match(texte, /compatibles? avec une même préparation/i);
+    assert.match(texte, /n[’']établit pas d[’']origine unique/i);
+  }
+  /* Les trois choses qu'elle ne nomme pas doivent etre ecrites la ou
+     le joueur relira : dans le fait porte au carnet. */
+  assert.match(fait.text, /ni le produit/i);
+  assert.match(fait.text, /ni le fabricant/i);
+  assert.match(fait.text, /ni personne/i);
+});
+
+test('ni « lot », ni « concentration », nulle part dans le jeu', () => {
+  /* Deux formulations ecartees a la conception, et pour deux raisons
+     differentes : « meme lot » affirme une origine unique que la
+     comparaison n etablit pas, et « concentration » suppose un procede
+     quantitatif dont l affaire n a jamais defini le moindre detail.
+     Le controle vaut pour TOUT texte visible, pas seulement pour le
+     laboratoire : c est la seule facon qu il tienne encore quand
+     quelqu un ecrira la conclusion. */
+  const visible = [
+    ...dernierService.topics.flatMap((t) => t.lines.map((l) => l.text)),
+    ...dernierService.reactions.flatMap((r) => r.lines.map((l) => l.text)),
+    ...dernierService.characters.flatMap((c) => c.defaultReaction.map((l) => l.text)),
+    ...dernierService.clues.map((c) => c.description),
+    ...dernierService.facts.map((f) => f.text),
+    ...dernierService.statements.map((s) => s.text),
+  ]
+    .join(' ')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+
+  assert.doesNotMatch(visible, /\blots?\b/, '« lot » affirme une origine unique');
+  assert.doesNotMatch(visible, /concentration/, '« concentration » suppose un dosage');
+});
+
+test('les deux resultats restent deux choses distinctes', () => {
+  const premier = dernierService.statements.find((s) => s.id === 'doyle_resultat_preliminaire')!;
+  const second = dernierService.statements.find((s) => s.id === 'doyle_contre_epreuve')!;
+
+  assert.equal(premier.speaker, 'doyle');
+  assert.equal(second.speaker, 'doyle');
+  /* Deux rubriques differentes : le carnet en fera deux entrees, et
+     nul ne pourra prendre l'une pour l'autre en relisant. */
+  assert.notEqual(premier.topic, second.topic);
+  assert.equal(second.supersedes, undefined, 'la seconde ne remplace pas la premiere');
+
+  const faitUn = dernierService.facts.find((f) => f.id === 'fait_labo_preliminaire')!;
+  const faitDeux = dernierService.facts.find((f) => f.id === 'fait_labo_contre_epreuve')!;
+  assert.notEqual(faitUn.topic, faitDeux.topic);
+});
+
+test('la contre-epreuve a deux verrous, pas un', () => {
+  const { question } = contreEpreuve();
+  assert.equal(question.hidden, true);
+
+  const ouvrent = dernierService.reactions.filter((r) =>
+    (r.effects?.unlockTopics ?? []).includes('doyle_contre_epreuve'),
+  );
+  const parQuestion = dernierService.topics.filter((t) =>
+    (t.effects?.unlockTopics ?? []).includes('doyle_contre_epreuve'),
+  );
+  assert.equal(parQuestion.length, 0, 'aucune question ne doit l ouvrir');
+  assert.equal(ouvrent.length, 1, 'un seul geste doit l ouvrir');
+
+  /* Premier verrou : le geste. Il faut rapporter le prelevement a
+     Doyle en main propre. */
+  assert.equal(ouvrent[0].character, 'doyle');
+  assert.equal(ouvrent[0].clue, 'trace_etagere');
+
+  /* Second verrou : il faut deja tenir le premier resultat, faute de
+     quoi il n'y a rien a comparer. */
+  assert.deepEqual(ouvrent[0].requires?.facts, ['fait_labo_preliminaire']);
+});
+
+test('le prelevement rapporte trop tot ne debloque rien, et le dit', () => {
+  const lesDeux = dernierService.reactions.filter(
+    (r) => r.character === 'doyle' && r.clue === 'trace_etagere',
+  );
+  assert.equal(lesDeux.length, 2, 'un cas conditionne, et son jumeau sans condition');
+
+  /* findReaction() rend la PREMIERE reaction dont les conditions
+     passent. Si la version sans condition passait devant, elle
+     capterait tout et la contre-epreuve deviendrait inatteignable --
+     sans que rien ne plante. L'ordre est donc une regle, pas un
+     hasard de redaction. */
+  const iConditionnee = dernierService.reactions.findIndex(
+    (r) => r.character === 'doyle' && r.clue === 'trace_etagere' && r.requires !== undefined,
+  );
+  const iLibre = dernierService.reactions.findIndex(
+    (r) => r.character === 'doyle' && r.clue === 'trace_etagere' && r.requires === undefined,
+  );
+  assert.equal(iConditionnee < iLibre, true, 'la conditionnee doit passer en premier');
+
+  /* Le cas « trop tot » n'ouvre rien. Il enregistre seulement ce que
+     l'objet permet d'etablir tout seul. */
+  const libre = dernierService.reactions[iLibre];
+  assert.equal(libre.effects?.unlockTopics, undefined);
+  assert.equal(libre.effects?.setMood, undefined);
+  assert.deepEqual(libre.effects?.revealFacts, ['fait_trace_etagere']);
+  /* Et il explique ce qui manque, plutot que de laisser le joueur
+     devant un mur muet. */
+  const dit = libre.lines.map((l) => l.text).join(' ');
+  assert.match(dit, /compare|mettre en face/i);
+});
+
+test('la contre-epreuve ne fait conclure personne', () => {
+  const { question } = contreEpreuve();
+  assert.deepEqual(question.effects?.revealFacts, ['fait_labo_contre_epreuve']);
+  assert.equal(question.effects?.unlockTopics, undefined);
+  assert.equal(question.effects?.setMood, undefined);
+  assert.equal(question.effects?.endInterrogation, undefined);
+
+  /* La presenter a Enzo -- la seule personne a qui cela aille de soi,
+     puisque c'est son etagere -- ne produit rien du tout. */
+  const face = dernierService.reactions.filter((r) => r.statement === 'doyle_contre_epreuve');
+  assert.equal(face.length, 1);
+  assert.equal(face[0].character, 'enzo');
+  assert.equal(face[0].effects, undefined);
+  assert.equal(face[0].records, undefined);
+});
+
+test('ce que la trace etablit ne depasse pas ce qu une trace peut dire', () => {
+  const trace = dernierService.clues.find((c) => c.id === 'trace_etagere')!;
+  const fait = dernierService.facts.find((f) => f.id === 'fait_trace_etagere')!;
+
+  /* L'objet decrit un rond de poussiere et de la poudre dans le bois.
+     Il ne nomme aucun produit, aucune marque, aucune personne. */
+  for (const texte of [trace.description, fait.text]) {
+    assert.doesNotMatch(texte, /arsenic|raticide|mort-aux-rats|poison|marque/i);
+    for (const sheet of dernierService.characters) {
+      assert.equal(texte.includes(sheet.name.split(' ')[0]), false, `${sheet.name} n a rien a faire la`);
+    }
+  }
+  /* Ce que la poussiere permet, et rien de plus : qu'un recipient soit
+     reste la, et qu'il n'y soit plus. */
+  assert.match(fait.text, /récipient/i);
+  assert.match(fait.text, /n[’']y est plus/i);
+  assert.equal(trace.rubric, 'local');
+});
 
 test('les trois indices sont ranges sous un lieu', () => {
   const lieux = new Set(dernierService.clueRubrics.map((r) => r.id));

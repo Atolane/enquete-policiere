@@ -24,6 +24,11 @@
      l'anisette -- et rien de ce qu'elle dit ici ne permet encore de
      l'inquieter. C'est exactement ce qu'on attend d'elle a ce stade.
 
+     Le local arriere, ouvert par la police, et ce qu'on trouve sur
+     son etagere haute : un rond de poussiere. Il dit qu'un recipient
+     est reste la longtemps et qu'il n'y est plus. Il ne dit pas
+     lequel.
+
      L'agent Doyle, qui garde la porte. Il n'est pas un suspect : il
      est arrive apres. Il est la voie par laquelle une bouteille
      ramassee au pied d'une table devient un resultat de laboratoire
@@ -61,9 +66,8 @@
    -------------------------------------------------------------------
    CE QUI N'EST PAS ENCORE LA
    -------------------------------------------------------------------
-   La contre-epreuve du laboratoire. La cave. Ce que Rosa a reellement
-   fait de sa nuit, et ce qu'Aldo fait reellement de ses ecritures. La
-   conclusion. Les decors reels -- les
+   Ce que Rosa a reellement fait de sa nuit, et ce qu'Aldo fait
+   reellement de ses ecritures. Les epilogues. La conclusion. Les decors reels -- les
    licences d'assets ne sont pas reglees, et rien n'entrera dans
    public/ avant qu'elles le soient.
    =================================================================== */
@@ -148,7 +152,10 @@ export const dernierService: CaseData = {
      cuisine » et « Le local arriere » viendront avec leurs objets, pas
      avant -- une rubrique vide n'est pas une faute, mais c'est une
      promesse que le carnet ne tient pas encore. */
-  clueRubrics: [{ id: 'bureau', label: 'Le bureau' }],
+  clueRubrics: [
+    { id: 'bureau', label: 'Le bureau' },
+    { id: 'local', label: 'Le local arrière' },
+  ],
 
   clues: [
     {
@@ -188,6 +195,21 @@ export const dernierService: CaseData = {
         'Une bouteille d’anisette posée contre le pied de la table, rebouchée, à moitié ' +
         'pleine. L’étiquette est intacte. Le goulot porte une trace sèche.',
       rubric: 'bureau',
+    },
+    {
+      /* CE QU'ON VOIT SUR UNE ETAGERE, ET RIEN D'AUTRE.
+         Un rond de poussiere et un peu de poudre dans le bois. Pas de
+         nom de produit, pas d'etiquette, pas de marque : l'objet n'en
+         sait pas plus, et il serait facile -- et faux -- de lui faire
+         dire ce que seul le laboratoire pourra suggerer. */
+      id: 'trace_etagere',
+      name: 'Une trace sur l’étagère haute',
+      prompt: 'Examiner l’étagère',
+      description:
+        'Sur l’étagère du haut, la poussière s’arrête net autour d’un disque plus clair : ' +
+        'un récipient est resté là longtemps, et il n’y est plus. Un peu de poudre grise ' +
+        'tient encore dans le grain du bois.',
+      rubric: 'local',
     },
     {
       id: 'registre_livraisons',
@@ -288,6 +310,39 @@ export const dernierService: CaseData = {
         'd’un composé arsenical dans le résidu de la bouteille. Il ne porte ni quantité, ' +
         'ni date, ni origine, et demande une contre-épreuve.',
       topic: 'Le laboratoire',
+    },
+    {
+      id: 'fait_local_ouvert',
+      text: 'Le local arrière a été ouvert par la police le 13 au matin, avec la clé du gérant.',
+      topic: 'Le local arrière',
+    },
+    {
+      /* Ce qu'un rond de poussiere permet d'etablir, et pas un mot de
+         plus. Qu'un recipient y soit reste longtemps : oui, la
+         poussiere le dit. Lequel, depuis quand, emporte par qui : non,
+         et aucun de ces trois mots n'a sa place ici. */
+      id: 'fait_trace_etagere',
+      text: 'Un récipient a séjourné longtemps sur l’étagère haute du local arrière. Il n’y est plus.',
+      topic: 'Le local arrière',
+    },
+    {
+      /* LA CONTRE-EPREUVE, TELLE QU'ELLE DOIT ETRE LUE.
+         « Compatibles avec une meme preparation du commerce » est une
+         phrase de chimiste, et elle dit exactement ce qu'elle dit :
+         les deux prelevements pourraient venir d'un meme produit
+         courant, ce qui est vrai de milliers de flacons. Elle
+         n'etablit pas d'origine unique, elle ne nomme pas le produit,
+         elle ne nomme pas le fabricant, et elle ne nomme personne.
+
+         Les trois negations sont dans le texte du fait, pas seulement
+         dans la bouche de Doyle : un joueur qui relit son carnet trois
+         heures plus tard doit les retrouver. */
+      id: 'fait_labo_contre_epreuve',
+      text:
+        'La comparaison des deux prélèvements les dit compatibles avec une même ' +
+        'préparation du commerce. Elle n’établit pas d’origine unique et n’identifie ' +
+        'ni le produit, ni le fabricant, ni personne.',
+      topic: 'La contre-épreuve',
     },
     {
       id: 'fait_aldo_tient_les_comptes',
@@ -500,6 +555,27 @@ export const dernierService: CaseData = {
         'Résultat préliminaire : compatible avec la présence d’un composé arsenical dans ' +
         'le résidu. Il ne dit pas combien, ni quand, ni par qui.',
       topic: 'Le laboratoire',
+      truth: 'true',
+    },
+
+    {
+      id: 'doyle_local',
+      speaker: 'doyle',
+      text: 'Le local du fond, je l’ai fait ouvrir ce matin. Le gérant avait la clé.',
+      topic: 'Le 13 au matin',
+      truth: 'true',
+    },
+    {
+      /* La declaration porte les memes reserves que le fait. Le carnet
+         les range sous « La contre-epreuve » et non sous « Le
+         laboratoire » : deux resultats, deux entrees, et aucun moyen
+         de les confondre en relisant. */
+      id: 'doyle_contre_epreuve',
+      speaker: 'doyle',
+      text:
+        'Les deux prélèvements sont compatibles avec une même préparation du commerce. ' +
+        'Ça n’établit pas d’origine unique, et ça ne nomme personne.',
+      topic: 'La contre-épreuve',
       truth: 'true',
     },
 
@@ -963,6 +1039,52 @@ export const dernierService: CaseData = {
       effects: { revealFacts: ['fait_labo_preliminaire'] },
     },
 
+    {
+      id: 'doyle_local',
+      speaker: 'doyle',
+      question: 'Le local du fond est-il ouvert ?',
+      category: 'les faits',
+      lines: [
+        { speaker: 'detective', text: 'Le local, au fond. On peut y entrer ?' },
+        { speaker: 'doyle', text: 'Je l’ai fait ouvrir ce matin. Le gérant avait la clé.' },
+        { speaker: 'doyle', text: 'Personne n’y est entré depuis. Allez-y.' },
+      ],
+      records: ['doyle_local'],
+      effects: { revealFacts: ['fait_local_ouvert'] },
+    },
+    {
+      /* Masquee, et deux verrous devant elle plutot qu'un : il faut un
+         premier resultat A COMPARER, et un prelevement a lui opposer.
+         Le premier verrou est porte par la condition de la reaction ;
+         le second par le geste qui la declenche. Ni l'un ni l'autre ne
+         se contourne, et aucun des deux n'est de la decoration : une
+         contre-epreuve sans rien en face n'est pas une contre-epreuve. */
+      id: 'doyle_contre_epreuve',
+      speaker: 'doyle',
+      question: 'Et la comparaison ?',
+      category: 'les faits',
+      hidden: true,
+      lines: [
+        { speaker: 'detective', text: 'Le bois de l’étagère. La comparaison a été faite ?' },
+        {
+          speaker: 'doyle',
+          text: 'Ils ont mis les deux prélèvements côte à côte. Le résidu de la bouteille, la poudre du bois.',
+        },
+        {
+          speaker: 'doyle',
+          text: 'Compatibles avec une même préparation du commerce. C’est la phrase exacte.',
+          pause: 0.7,
+        },
+        {
+          speaker: 'doyle',
+          text: 'Ça n’établit pas une origine unique. Ni le produit, ni le fabricant, ni personne.',
+          beat: 'think',
+        },
+      ],
+      records: ['doyle_contre_epreuve'],
+      effects: { revealFacts: ['fait_labo_contre_epreuve'] },
+    },
+
     // --- Enzo ---------------------------------------------------------
     {
       id: 'enzo_relance',
@@ -1071,6 +1193,61 @@ export const dernierService: CaseData = {
 
   // --- Ce qu'il dit devant un objet -----------------------------------
   reactions: [
+    {
+      /* LE PRELEVEMENT, QUAND IL Y A DE QUOI COMPARER.
+         findReaction() rend la PREMIERE reaction dont les conditions
+         passent : celle-ci doit donc rester avant sa jumelle sans
+         condition, quelques lignes plus bas. Les inverser rendrait la
+         contre-epreuve inatteignable, et rien ne planterait. */
+      character: 'doyle',
+      clue: 'trace_etagere',
+      requires: { facts: ['fait_labo_preliminaire'] },
+      lines: [
+        { speaker: 'detective', text: 'Sur l’étagère du haut, dans le local. Il y a de la poudre dans le bois.' },
+        { speaker: 'doyle', text: 'Je fais gratter le bois. Ils compareront avec le fond de la bouteille.' },
+        { speaker: 'doyle', text: 'Redemandez-moi tout à l’heure.', beat: 'think' },
+      ],
+      effects: {
+        revealFacts: ['fait_trace_etagere'],
+        unlockTopics: ['doyle_contre_epreuve'],
+      },
+    },
+    {
+      /* LE MEME PRELEVEMENT, TROP TOT.
+         Il ne se passe rien, et Doyle dit pourquoi. Un blocage muet
+         ferait croire a une panne ; un blocage qui s'explique est une
+         consigne. Le joueur repart en sachant ce qui lui manque. */
+      character: 'doyle',
+      clue: 'trace_etagere',
+      lines: [
+        { speaker: 'detective', text: 'Sur l’étagère du haut, dans le local. Il y a de la poudre dans le bois.' },
+        { speaker: 'doyle', text: 'Et je compare ça avec quoi ?', beat: 'deny', pause: 0.6 },
+        { speaker: 'doyle', text: 'Rapportez-moi de quoi mettre en face. Un prélèvement seul ne dit rien.' },
+      ],
+      effects: { revealFacts: ['fait_trace_etagere'] },
+    },
+    {
+      character: 'enzo',
+      clue: 'trace_etagere',
+      lines: [
+        { speaker: 'detective', text: 'Un cercle sec sur votre étagère du haut.' },
+        { speaker: 'enzo', text: 'On pose des choses sur les étagères. C’est leur usage.', beat: 'dismiss' },
+      ],
+    },
+    {
+      /* LA CONTRE-EPREUVE SOUS SON NEZ.
+         Il ne nie pas, il ne cede pas : il lit la phrase comme elle
+         est ecrite, et il a raison de la lire ainsi. C'est la meilleure
+         defense possible, et elle laisse le joueur exactement ou il
+         doit etre -- avec un resultat qui l'oriente sans rien prouver. */
+      character: 'enzo',
+      statement: 'doyle_contre_epreuve',
+      lines: [
+        { speaker: 'detective', text: 'Le chimiste a comparé votre étagère et le fond de cette bouteille.' },
+        { speaker: 'enzo', text: 'Compatibles. C’est votre mot.', pause: 0.6 },
+        { speaker: 'enzo', text: 'Moi j’entends qu’ils n’en savent rien.', beat: 'dismiss' },
+      ],
+    },
     {
       /* LE GESTE QUI DECLENCHE L'ANALYSE.
          C'est la seule chose, dans tout le jeu, qui ouvre la question

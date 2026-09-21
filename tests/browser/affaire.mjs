@@ -47,6 +47,7 @@ const ALDO = { x: 4.8, y: 1.35, z: 2.2 };
 const LIVRES = { x: 3.5, y: 1.41, z: -2.0 };
 const BOUTEILLE = { x: -5.0, y: 0.13, z: 4.15 };
 const DOYLE = { x: 1.8, y: 1.35, z: 4.9 };
+const ETAGERE = { x: -5.4, y: 1.29, z: 1.6 };
 
 let ok = 0;
 let ko = 0;
@@ -287,6 +288,39 @@ const lireEnNotant = async (max = 20) => {
   return vues.join(' | ');
 };
 
+// --- 0. L'agent a la porte, en arrivant --------------------------------
+
+/* Il se tient a deux metres du point d'apparition. C'est lui qu'on
+   voit en premier, et c'est par lui qu'on apprend que le local du fond
+   a ete ouvert. */
+await trajet('jusqu a Doyle', [{ ...DOYLE, arret: 1.7 }]);
+const inviteD0 = await viserJusqua(DOYLE, /Interroger Agent Doyle/);
+check('le viseur annonce l agent Doyle', /Interroger Agent Doyle/.test(inviteD0), `"${inviteD0}"`);
+await page.mouse.click(500, 280);
+const enteteDoyle0 = await attendreEntretien('Agent Doyle');
+check('l entretien s ouvre sur l agent Doyle', enteteDoyle0.ouvert && enteteDoyle0.nom.includes('Agent Doyle'), enteteDoyle0.nom);
+check('sa qualite est affichee', /police/i.test(enteteDoyle0.role), enteteDoyle0.role);
+
+const doyle0 = await choix();
+check(
+  'aucun des deux resultats n existe au depart',
+  !doyle0.some((o) => o.topic === 'doyle_resultat') &&
+    !doyle0.some((o) => o.topic === 'doyle_contre_epreuve'),
+  JSON.stringify(doyle0.map((o) => o.texte)),
+);
+
+await cliquerChoix('.dialogue-choice[data-topic="doyle_local"]');
+await page.waitForTimeout(350);
+check('il dit que le local du fond est ouvert', await lire());
+
+await cliquerChoix('.dialogue-choice[data-topic="doyle_alerte"]');
+await page.waitForTimeout(350);
+check('il dit qui a donne l alerte', await lire());
+
+await page.keyboard.press('Escape');
+await page.waitForTimeout(400);
+check('le joueur reprend la main en quittant Doyle', await reprendreLaMain());
+
 // --- 1. Un indice du bureau -------------------------------------------
 
 /* On longe le mur sud : l'appareil de presse ferme le passage direct. */
@@ -327,19 +361,44 @@ check(
 await page.mouse.click(500, 280);
 await page.waitForTimeout(300);
 
-// --- 1 ter. L'agent Doyle, pres de l'entree ---------------------------
+// --- 1 ter. Le local arriere ------------------------------------------
 
-await trajet('jusqu a Doyle', [
+/* Les cloisons montent plus haut que les yeux : l'etagere ne se voit
+   pas depuis la salle. On entre par l'ouverture, au milieu de la
+   facade, et on s'avance jusqu'a la planche. */
+await trajet('jusqu au local arriere', [
+  { x: -3.6, z: 2.0 },
+  { x: -3.9, z: 1.6 },
+  { x: -4.6, z: 1.6, arret: 0.4 },
+]);
+const inviteE = await viserJusqua(ETAGERE, /Examiner l’étagère/);
+check('le viseur annonce l etagere', /Examiner l’étagère/.test(inviteE), `"${inviteE}"`);
+await page.mouse.click(500, 280);
+await page.waitForTimeout(400);
+const ficheE = await fiche();
+check('la fiche de la trace s ouvre', ficheE.ouverte && /étagère/i.test(ficheE.titre), ficheE.titre);
+check('elle decrit un rond de poussiere', /disque plus clair/.test(ficheE.texte), ficheE.texte.slice(0, 60));
+check(
+  'elle ne nomme aucun produit',
+  !/arsenic|raticide|poison|mort-aux-rats/i.test(ficheE.texte),
+  ficheE.texte.slice(0, 80),
+);
+await page.mouse.click(500, 280);
+await page.waitForTimeout(300);
+
+// --- 1 quater. Retour chez Doyle : le blocage, puis le deblocage ------
+
+await trajet('retour chez Doyle', [
+  { x: -3.6, z: 1.6 },
   { x: -2.6, z: 4.4 },
   { x: 0, z: 4.4 },
   { ...DOYLE, arret: 1.7 },
 ]);
 const inviteD = await viserJusqua(DOYLE, /Interroger Agent Doyle/);
-check('le viseur annonce l agent Doyle', /Interroger Agent Doyle/.test(inviteD), `"${inviteD}"`);
+check('le viseur le retrouve', /Interroger Agent Doyle/.test(inviteD), `"${inviteD}"`);
 await page.mouse.click(500, 280);
 const enteteDoyle = await attendreEntretien('Agent Doyle');
-check('l entretien s ouvre sur l agent Doyle', enteteDoyle.ouvert && enteteDoyle.nom.includes('Agent Doyle'), enteteDoyle.nom);
-check('sa qualite est affichee', /police/i.test(enteteDoyle.role), enteteDoyle.role);
+check('l entretien se rouvre sur l agent Doyle', enteteDoyle.ouvert && enteteDoyle.nom.includes('Agent Doyle'), enteteDoyle.nom);
 
 const doyleAvant = await choix();
 check(
@@ -348,9 +407,22 @@ check(
   JSON.stringify(doyleAvant.map((o) => o.texte)),
 );
 
-await cliquerChoix('.dialogue-choice[data-topic="doyle_alerte"]');
-await page.waitForTimeout(350);
-check('il dit qui a donne l alerte', await lire());
+/* LE PRELEVEMENT RAPPORTE TROP TOT.
+   Il n'y a encore rien a comparer. Doyle le prend, le dit, et n'ouvre
+   rien -- c'est le blocage, et il s'explique. */
+await page.click('#dialogue-present');
+await page.waitForTimeout(400);
+await cliquerChoix('.dialogue-choice[data-evidence="clue:trace_etagere"]');
+await page.waitForTimeout(400);
+const refus = await lireEnNotant();
+check('il dit ce qui lui manque', /compare|mettre en face/i.test(refus), refus.slice(0, 120));
+
+const apresRefus = await choix();
+check(
+  'le prelevement seul n ouvre pas la contre-epreuve',
+  !apresRefus.some((o) => o.topic === 'doyle_contre_epreuve'),
+  JSON.stringify(apresRefus.map((o) => o.texte)),
+);
 
 /* LA BOUTEILLE EN MAIN PROPRE. C'est le seul geste, dans tout le jeu,
    qui ouvre la question du laboratoire. */
@@ -388,9 +460,59 @@ check('il dit lui-meme ce qu il ignore', /ni quand/i.test(repliques) && /ni par 
 check('il ne designe personne', !/coupable|assassin|empoisonn/i.test(repliques));
 check('il n avance aucun chiffre', !/[0-9]/.test(repliques), repliques.slice(0, 120));
 
+/* Le premier resultat est acquis -- et la contre-epreuve reste
+   fermee. C'est le point de la tranche : le prelevement a ete
+   rapporte TROP TOT, et le geste ne se rattrape pas tout seul. */
+const apresPremier = await choix();
+check(
+  'le premier resultat seul n ouvre pas la contre-epreuve',
+  !apresPremier.some((o) => o.topic === 'doyle_contre_epreuve'),
+  JSON.stringify(apresPremier.map((o) => o.texte)),
+);
+
+// --- 1 quinquies. On ressort, on revient, et on redonne le prelevement -
+
 await page.keyboard.press('Escape');
 await page.waitForTimeout(400);
 check('le joueur reprend la main en quittant Doyle', await reprendreLaMain());
+
+await viserJusqua(DOYLE, /Interroger Agent Doyle/);
+await page.mouse.click(500, 280);
+const doyleTrois = await attendreEntretien('Agent Doyle');
+check('l entretien se rouvre une seconde fois', doyleTrois.ouvert && doyleTrois.nom.includes('Agent Doyle'), doyleTrois.nom);
+
+await page.click('#dialogue-present');
+await page.waitForTimeout(400);
+await cliquerChoix('.dialogue-choice[data-evidence="clue:trace_etagere"]');
+await page.waitForTimeout(400);
+const priseEnCharge = await lireEnNotant();
+check('cette fois il emporte le prelevement', /gratter|compareront/i.test(priseEnCharge), priseEnCharge.slice(0, 120));
+
+const doyleContre = await choix();
+check(
+  'les deux prerequis reunis ouvrent la contre-epreuve',
+  doyleContre.some((o) => o.topic === 'doyle_contre_epreuve'),
+  JSON.stringify(doyleContre.map((o) => o.texte)),
+);
+
+await cliquerChoix('.dialogue-choice[data-topic="doyle_contre_epreuve"]');
+await page.waitForTimeout(350);
+const contre = await lireEnNotant();
+check('il lit la comparaison', contre.length > 0, contre.slice(0, 60));
+check(
+  'les prelevements sont dits compatibles avec une meme preparation',
+  /compatibles avec une même préparation/i.test(contre),
+  contre.slice(0, 140),
+);
+check('il dit que cela n etablit pas d origine unique', /n’établit pas une origine unique/i.test(contre));
+check('il ne nomme ni produit, ni fabricant, ni personne', /ni le produit/i.test(contre) && /ni le fabricant/i.test(contre) && /ni personne/i.test(contre));
+check('le mot « lot » n est jamais prononce', !/\blots?\b/i.test(contre), contre.slice(0, 140));
+check('le mot « concentration » non plus', !/concentration/i.test(contre));
+check('il ne designe toujours personne', !/coupable|assassin|empoisonn/i.test(contre));
+
+await page.keyboard.press('Escape');
+await page.waitForTimeout(400);
+check('le joueur reprend la main une derniere fois', await reprendreLaMain());
 
 // --- 2. Le temoin ------------------------------------------------------
 
@@ -545,6 +667,39 @@ check(
 await cliquerChoix('.dialogue-choice[data-topic="enzo_matin_reprise"]');
 await page.waitForTimeout(350);
 check('la reprise se joue jusqu au bout', await lire());
+
+/* C'est son etagere : la trace et la comparaison sont les deux seules
+   pieces qu'il ait un rapport a commenter. Il commente, et rien ne
+   bouge. */
+const avantEtagere = await choix();
+await page.click('#dialogue-present');
+await page.waitForTimeout(400);
+await cliquerChoix('.dialogue-choice[data-evidence="clue:trace_etagere"]');
+await page.waitForTimeout(400);
+const enzoTrace = await lireEnNotant();
+check('il repond sur l etagere', /étagères/i.test(enzoTrace), enzoTrace.slice(0, 120));
+
+await page.click('#dialogue-present');
+await page.waitForTimeout(400);
+const piecesEnzo = await page.evaluate(() =>
+  [...document.querySelectorAll('.dialogue-choice')].map((e) => e.dataset.evidence ?? ''),
+);
+check(
+  'la contre-epreuve lui est presentable',
+  piecesEnzo.includes('statement:doyle_contre_epreuve'),
+  JSON.stringify(piecesEnzo),
+);
+await cliquerChoix('.dialogue-choice[data-evidence="statement:doyle_contre_epreuve"]');
+await page.waitForTimeout(400);
+const enzoContre = await lireEnNotant();
+check('il lit la phrase comme elle est ecrite', /n’en savent rien/i.test(enzoContre), enzoContre.slice(0, 120));
+
+const apresEtagere = await choix();
+check(
+  'ni la trace ni la comparaison ne lui ouvrent quoi que ce soit',
+  apresEtagere.length === avantEtagere.length,
+  `avant ${avantEtagere.length}, apres ${apresEtagere.length}`,
+);
 
 // --- 5. Rosa Vitale ----------------------------------------------------
 
@@ -767,6 +922,15 @@ check(
   'aucune quantite n est apparue en chemin',
   !/milligramme|gramme|dose|taux|seuil/i.test(carnet.texte),
 );
+check('le local arriere est une rubrique du carnet', /Le local arrière/.test(carnet.texte));
+check('la trace de l etagere y est rangee', /disque plus clair/.test(carnet.texte));
+check('la contre-epreuve y figure', /compatibles avec une même préparation/i.test(carnet.texte));
+check(
+  'les deux resultats restent deux entrees distinctes',
+  /Le laboratoire/.test(carnet.texte) && /La contre-épreuve/.test(carnet.texte),
+);
+check('le carnet ne dit jamais « lot »', !/\blots?\b/i.test(carnet.texte));
+check('ni « concentration »', !/concentration/i.test(carnet.texte));
 check('aucun identifiant technique a l ecran', !/nino_|enzo_|rosa_|aldo_|doyle_|fait_|registre_livraisons/.test(carnet.texte));
 
 check('aucune erreur de console', erreurs.length === 0, erreurs.join(' | '));
