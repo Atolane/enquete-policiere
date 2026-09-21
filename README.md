@@ -3,7 +3,7 @@
 Petit jeu d'enquête policière 3D en vue FPS, jouable dans un navigateur.
 États-Unis, 1948. Ambiance film noir. Une seule affaire de meurtre.
 
-**État actuel : Phase 7C-1 — validation complète des conditions.**
+**État actuel : Phase 7C-2 — rubriques d'indices déclarées.**
 Une pièce de test en primitives (graybox), une caméra à la première personne,
 le déplacement ZQSD/WASD, la gravité, de vraies collisions (murs, escalier,
 rampe, passage étroit) l'observation d'objets (viseur, libellé,
@@ -190,15 +190,51 @@ lit à son sujet est écrit une seule fois, dans le catalogue de l'affaire :
 
 ```ts
 // src/data/demo/greco.ts
+clueRubrics: [
+  { id: 'salle', label: 'La salle' },    // sous quel intitulé le carnet le range
+],
 clues: [
   {
     id: 'ashtray',
     name: 'Cendrier',                    // liste ET titre de la fiche
     prompt: 'Examiner le cendrier',      // libellé sous le viseur
+    rubric: 'salle',                     // une RÉFÉRENCE au catalogue
     description: 'Un mégot taché de rouge à lèvres, écrasé récemment. …',
   },
 ]
 ```
+
+### La rubrique dit où, jamais ce que ça prouve
+
+C'est la règle d'écriture, et elle n'est pas négociable :
+
+> **Une rubrique d'indice dit OÙ, ou dans quel contexte, l'objet a été trouvé.
+> Jamais ce qu'il prouve.**
+
+« La salle », « Papiers », « Sur la victime » : oui. « Preuves contre Greco »,
+« Éléments à charge » : non — ce serait le carnet qui accuse à la place du
+joueur, exactement ce que la Phase 7A a refusé de faire.
+
+Ces rubriques ne sont **pas** celles des déclarations ni des faits. Une
+déclaration se range par sujet de conversation, un fait par sujet
+d'information. Trois vocabulaires distincts, et ils le restent — c'est
+pourquoi le champ des indices s'appelle `rubric` et non `topic` : sa valeur
+est une référence, là où `Statement.topic` est un libellé affiché tel quel.
+
+| Faute | Message |
+|---|---|
+| l'indice cite une rubrique absente du catalogue | `indice "ashtray" : rubrique inconnue "salon"` |
+| deux rubriques de même identifiant | `rubrique en double : salle` |
+| libellé vide | `rubrique "salle" : aucun libelle` |
+| rubrique déclarée que personne n'utilise | **ce n'est pas une faute** — le message le dit, et on peut déclarer une rubrique avant d'écrire les indices qui s'y rangeront |
+
+Un indice dont la rubrique n'existe pas se range sous **« Sans rubrique »**.
+L'identifiant fautif est nommé en console, jamais affiché au joueur : le carnet
+ne montre pas de plomberie.
+
+Les trois rubriques actuelles (`salle`, `papiers`, `objets`) sont
+**provisoires** : elles décrivent la pièce de test et disparaîtront avec elle.
+Ce qui reste, c'est le mécanisme.
 
 La scène 3D, elle, ne dit plus que **où il se trouve** :
 
@@ -561,6 +597,6 @@ réellement besoin.
 - [x] **Phase 7A** — le carnet : dossier consultable, rubriques, priorités clavier
 - [x] **Phase 7B** — sauvegarde et reprise, tolérante aux sauvegardes abîmées
 - [x] **Phase 7C-1** — validation complète des conditions et des effets
-- [ ] Phase 7C-2 — rubriques d'indices : catalogue de lieux
+- [x] **Phase 7C-2** — rubriques d'indices : catalogue déclaré et vérifié
 - [ ] Phase 8 — tranche verticale jouable
 - [ ] Phases 9 à 16 — contenu, lieux, ambiance, audio, finition

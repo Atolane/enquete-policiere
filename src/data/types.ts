@@ -29,6 +29,7 @@ export type ClueId = string;
 export type TopicId = string;
 export type StatementId = string;
 export type FactId = string;
+export type ClueRubricId = string;
 
 /** Geste ponctuel joue pendant une replique, puis relache. */
 export type Beat = 'agree' | 'deny' | 'dismiss' | 'think';
@@ -119,14 +120,41 @@ export interface ClueEntry {
   /** Ce que l'inspecteur constate en l'examinant. */
   description: string;
   /**
-   * Rubrique sous laquelle le carnet le classe : « La salle »,
-   * « Papiers »... (Phase 7A)
+   * Sous quelle rubrique le carnet le classe : un IDENTIFIANT du
+   * catalogue clueRubrics (Phase 7C-2).
    *
-   * Les declarations et les faits en avaient deja une ; les indices n'en
-   * avaient pas. Un dossier de trente pieces en vrac n'est pas un
-   * dossier, c'est un tas.
+   * C'etait une chaine libre jusqu'ici, et le champ s'appelait « topic »
+   * comme sur les declarations et les faits. Deux raisons de l'avoir
+   * renomme : sa valeur a change de nature -- c'est une reference, plus
+   * un texte affichable -- et Statement.topic reste, lui, un libelle
+   * qu'on affiche tel quel. Deux champs du meme nom, l'un identifiant
+   * et l'autre texte, se paient six mois plus tard.
    */
-  topic: string;
+  rubric: ClueRubricId;
+}
+
+/**
+ * Une rubrique d'indice : sous quel intitule le carnet le range.
+ *
+ * -------------------------------------------------------------------
+ * LA REGLE D'ECRITURE, ET ELLE N'EST PAS NEGOCIABLE
+ * -------------------------------------------------------------------
+ * Une rubrique d'indice dit OU ou DANS QUEL CONTEXTE l'objet a ete
+ * trouve. JAMAIS ce qu'il prouve.
+ *
+ * « La salle », « Papiers », « Sur la victime » : oui.
+ * « Preuves contre Greco », « Elements a charge » : non -- ce serait le
+ * carnet qui accuse a la place du joueur, exactement ce que la Phase 7A
+ * a refuse de faire.
+ *
+ * Ces rubriques ne sont PAS celles des declarations ni des faits : une
+ * declaration se range par sujet de conversation, un fait par sujet
+ * d'information. Trois vocabulaires distincts, et ils le restent.
+ */
+export interface ClueRubric {
+  id: ClueRubricId;
+  /** Ce que le carnet affiche en tete de section. */
+  label: string;
 }
 
 /**
@@ -296,6 +324,8 @@ export interface CaseData {
   topics: DialogueTopic[];
   statements: Statement[];
   clues: ClueEntry[];
+  /** Les rubriques sous lesquelles le carnet range les indices. */
+  clueRubrics: ClueRubric[];
   facts: FactEntry[];
   reactions: EvidenceReaction[];
 }

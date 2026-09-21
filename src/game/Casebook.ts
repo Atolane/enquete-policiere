@@ -43,6 +43,9 @@
 import type { DialogueEngine } from './dialogue';
 import type { GameState } from './GameState';
 
+/** Intitule de repli quand un indice cite une rubrique qui n'existe pas. */
+const UNFILED = 'Sans rubrique';
+
 /** Une entree du dossier. */
 export interface CasebookEntry {
   /** Intitule court : le nom d'un indice, le sujet d'une declaration. */
@@ -96,7 +99,17 @@ export class Casebook {
     for (const id of this.state.data.discoveredClues) {
       const entry = this.dialogue.clue(id);
       if (!entry) continue; // deja signale au demarrage par le validateur
-      sections.push(entry.topic, { label: entry.name, paragraphs: [entry.description] });
+
+      /* Rubrique absente du catalogue : le validateur l'a deja nommee en
+         console. On se rabat sur un intitule neutre plutot que d'ecrire
+         l'identifiant a l'ecran -- le carnet ne montre jamais de
+         plomberie au joueur. L'indice, lui, reste lisible. */
+      const rubric = this.dialogue.clueRubric(entry.rubric);
+      sections.push(
+        entry.rubric,
+        rubric?.label ?? UNFILED,
+        { label: entry.name, paragraphs: [entry.description] },
+      );
     }
 
     return sections.sections();
@@ -109,7 +122,7 @@ export class Casebook {
     for (const id of this.state.data.knownFacts) {
       const entry = this.dialogue.fact(id);
       if (!entry) continue;
-      sections.push(entry.topic, { paragraphs: [entry.text] });
+      sections.push(entry.topic, entry.topic, { paragraphs: [entry.text] });
     }
 
     return sections.sections();
@@ -146,7 +159,8 @@ export class Casebook {
       }
 
       const entry: CasebookEntry = { label: view.topic, paragraphs: [view.text] };
-      sections.push(sheet?.name ?? view.speaker, entry, sheet?.role);
+      const who = sheet?.name ?? view.speaker;
+      sections.push(who, who, entry, sheet?.role);
       placed.set(view.id, entry);
     }
 
@@ -155,27 +169,35 @@ export class Casebook {
 }
 
 /**
- * Regroupe des entrees par titre, en conservant l'ordre d'apparition.
+ * Regroupe des entrees, en conservant l'ordre d'apparition.
  *
  * L'ordre d'apparition est l'ordre dans lequel le joueur a appris les
  * choses. C'est le seul classement du dossier, et il est gratuit : ne
  * rien trier, c'est ne rien suggerer.
+ *
+ * La CLE et le TITRE sont deux choses distinctes depuis la Phase 7C-2.
+ * Les indices se groupent par identifiant de rubrique et s'affichent
+ * sous son libelle ; les declarations et les faits, eux, se groupent
+ * sous le texte qu'ils affichent, et passent donc la meme valeur aux
+ * deux. Grouper par la cle et non par le titre garantit que deux
+ * rubriques renommees a l'identique ne fusionnent pas, et que l'ordre
+ * de decouverte reste celui de la cle.
  */
 class Grouping {
   private readonly order: string[] = [];
-  private readonly byTitle = new Map<string, CasebookSection>();
+  private readonly byKey = new Map<string, CasebookSection>();
 
-  push(title: string, entry: CasebookEntry, subtitle?: string): void {
-    let section = this.byTitle.get(title);
+  push(key: string, title: string, entry: CasebookEntry, subtitle?: string): void {
+    let section = this.byKey.get(key);
     if (!section) {
       section = { title, subtitle, entries: [] };
-      this.byTitle.set(title, section);
-      this.order.push(title);
+      this.byKey.set(key, section);
+      this.order.push(key);
     }
     section.entries.push(entry);
   }
 
   sections(): CasebookSection[] {
-    return this.order.map((title) => this.byTitle.get(title)!);
+    return this.order.map((key) => this.byKey.get(key)!);
   }
 }

@@ -60,7 +60,7 @@ export const demoCase: CaseData = {
       id: 'ashtray',
       name: 'Cendrier',
       prompt: 'Examiner le cendrier',
-      topic: 'La salle',
+      rubric: 'salle',
       description:
         'Un mégot taché de rouge à lèvres, écrasé récemment. ' +
         'Quelqu\u2019un est resté ici après la fermeture.',
@@ -69,7 +69,7 @@ export const demoCase: CaseData = {
       id: 'report',
       name: 'Rapport dactylographié',
       prompt: 'Lire le document',
-      topic: 'Papiers',
+      rubric: 'papiers',
       description:
         'Un rapport daté du 12 novembre 1948. ' +
         'Le nom du signataire a été soigneusement découpé au rasoir.',
@@ -78,7 +78,7 @@ export const demoCase: CaseData = {
       id: 'phone',
       name: 'Téléphone décroché',
       prompt: 'Examiner le téléphone',
-      topic: 'La salle',
+      rubric: 'salle',
       description:
         'Le combiné est décroché et posé de travers. ' +
         'La ligne est muette : quelqu\u2019un a appelé, puis n\u2019a pas raccroché.',
@@ -87,7 +87,7 @@ export const demoCase: CaseData = {
       id: 'press_camera',
       name: 'Appareil photo de presse',
       prompt: 'Examiner l\u2019appareil photo',
-      topic: 'Objets',
+      rubric: 'objets',
       description:
         'Un appareil à soufflet monté sur trépied, du modèle qu\u2019utilisent ' +
         'les reporters de faits divers. Le magasin est vide : les plaques ont été retirées.',
@@ -392,6 +392,20 @@ export const demoCase: CaseData = {
       ],
       once: false,
     },
+  ],
+
+  /* --- Rubriques d'indices (Phase 7C-2) -----------------------------
+     Sous quel intitule le carnet range chaque objet trouve. Une
+     rubrique dit OU l'objet a ete trouve, jamais ce qu'il prouve.
+
+     Ces trois-la sont PROVISOIRES : elles decrivent la piece de test et
+     disparaitront avec elle quand les vrais lieux arriveront. Ce qui
+     reste, c'est le mecanisme -- une liste declaree, et des references
+     verifiees au demarrage. */
+  clueRubrics: [
+    { id: 'salle', label: 'La salle' },
+    { id: 'papiers', label: 'Papiers' },
+    { id: 'objets', label: 'Objets' },
   ],
 
   /* --- Catalogue des faits acquis (Phase 6B) ------------------------

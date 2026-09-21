@@ -24,6 +24,8 @@ import type {
   Condition,
   ClueEntry,
   ClueId,
+  ClueRubric,
+  ClueRubricId,
   DialogueLine,
   DialogueTopic,
   Effect,
@@ -61,6 +63,7 @@ export class DialogueEngine {
   private readonly statementsById = new Map<string, Statement>();
   private readonly cluesById = new Map<string, ClueEntry>();
   private readonly factsById = new Map<string, FactEntry>();
+  private readonly rubricsById = new Map<string, ClueRubric>();
 
   constructor(
     private readonly data: CaseData,
@@ -70,6 +73,7 @@ export class DialogueEngine {
     for (const statement of data.statements) this.statementsById.set(statement.id, statement);
     for (const clue of data.clues) this.cluesById.set(clue.id, clue);
     for (const fact of data.facts) this.factsById.set(fact.id, fact);
+    for (const rubric of data.clueRubrics) this.rubricsById.set(rubric.id, rubric);
   }
 
   characterSheet(id: CharacterId) {
@@ -94,6 +98,17 @@ export class DialogueEngine {
    */
   fact(id: FactId): FactEntry | null {
     return this.factsById.get(id) ?? null;
+  }
+
+  /**
+   * La rubrique sous laquelle le carnet range un indice.
+   *
+   * Renvoie null si elle n'existe pas : le validateur l'a deja signale
+   * au demarrage, et le dossier se rabat sur un intitule neutre plutot
+   * que d'afficher un identifiant technique.
+   */
+  clueRubric(id: ClueRubricId): ClueRubric | null {
+    return this.rubricsById.get(id) ?? null;
   }
 
   /**
@@ -381,6 +396,34 @@ export function validateCase(data: CaseData): string[] {
     }
   }
 
+  /* --- Rubriques d'indices (Phase 7C-2) ---
+     Le catalogue d'abord : les indices y font reference juste apres. */
+  const rubrics = new Set(data.clueRubrics.map((r) => r.id));
+  const seenRubrics = new Set<string>();
+  for (const rubric of data.clueRubrics) {
+    if (seenRubrics.has(rubric.id)) problems.push(`rubrique en double : ${rubric.id}`);
+    seenRubrics.add(rubric.id);
+    if (rubric.label.trim() === '') {
+      problems.push(`rubrique "${rubric.id}" : aucun libelle`);
+    }
+  }
+
+  /* Une rubrique que personne n'utilise n'est PAS une faute, et le
+     message le dit. Elle ne bloque rien -- contrairement a un fait que
+     rien ne revele, qui condamne en silence toutes les questions qui
+     l'attendent. On doit pouvoir declarer une rubrique avant d'ecrire
+     les indices qui s'y rangeront. */
+  const usedRubrics = new Set(data.clues.map((c) => c.rubric));
+  for (const rubric of data.clueRubrics) {
+    if (!usedRubrics.has(rubric.id)) {
+      problems.push(
+        `rubrique "${rubric.id}" : aucun indice ne s'y range pour l'instant. ` +
+          "Ce n'est pas une faute -- on peut declarer une rubrique avant " +
+          "d'ecrire les indices qui l'utiliseront.",
+      );
+    }
+  }
+
   // --- Indices et reactions (Phase 5B, etendu en 6A) ---
   const seenClues = new Set<string>();
   for (const clue of data.clues) {
@@ -396,8 +439,8 @@ export function validateCase(data: CaseData): string[] {
     if (clue.description.trim() === '') {
       problems.push(`indice ${clue.id} : aucune description a lire`);
     }
-    if (clue.topic.trim() === '') {
-      problems.push(`indice ${clue.id} : aucune rubrique pour le carnet`);
+    if (!rubrics.has(clue.rubric)) {
+      problems.push(`indice "${clue.id}" : rubrique inconnue "${clue.rubric}"`);
     }
     if (clue.description.length > 320) {
       problems.push(
