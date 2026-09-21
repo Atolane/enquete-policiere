@@ -1,15 +1,30 @@
 /* ===================================================================
-   SUITE NAVIGATEUR -- LA PREMIERE TRANCHE DE L'AFFAIRE (Phase 9)
+   SUITE NAVIGATEUR -- « LE DERNIER SERVICE » (Phase 9)
 
    Elle joue ce qu'un joueur ferait : marcher jusqu'a un indice,
-   l'examiner, aller voir le temoin, lui poser une question, ouvrir le
-   carnet. C'est la premiere suite qui vise l'affaire reelle et non le
-   suspect jetable.
+   l'examiner, aller voir un temoin, lui poser une question, lui poser
+   une piece sous le nez, ouvrir le carnet.
 
-   Contrairement aux huit suites heritees, celle-ci a ete ecrite ET
-   rejouee au moment ou elle a ete versee : 16 controles, 0 echec.
+   Tranche 1 : le verre renverse, Nino Restivo, une question qui
+   s'ouvre.
+   Tranche 2 : le registre des livraisons, Enzo Carbone, et la premiere
+   version qu'un temoin doit reprendre.
 
-   Prerequis, comme les autres :
+   NAVIGATION -- a lire avant de deplacer un point de passage.
+   La piece n'est pas un plateau vide et « allerVers » marche tout
+   droit, sans contourner. Trois obstacles decident des trajets :
+     - le passage etroit (z de 1,2 a 1,8) n'a qu'une ouverture, large
+       de 0,89 m, centree sur x = 0. Tout aller-retour nord-sud repasse
+       donc par x = 0 ;
+     - l'appareil de presse, a (-2,1 ; 2,6), ferme le couloir ouest :
+       on longe le mur sud, vers z = 3,7 ;
+     - la grande caisse occupe x de 2,8 a 4,2 : on s'arrete devant sa
+       face ouest, vers x = 2,3, et le registre reste a portee.
+   « allerVers » renvoie desormais s'il est arrive. Un trajet qui
+   echoue est un echec annonce, et non un controle suivant qui trouve
+   un ecran vide sans savoir pourquoi.
+
+   Prerequis :
      npm install --no-save playwright
      npx playwright install chromium
      npm run dev          (dans un autre terminal)
@@ -22,9 +37,11 @@ const BASE = process.env.TEST_URL ?? 'http://localhost:5173';
 const EYE = 1.65;
 const SENS = 0.0022;
 
-/** Ou se trouvent les deux cibles, en metres. */
+/** Les quatre cibles, en metres. */
 const VERRE = { x: -4.5, y: 0.83, z: 3.5 };
 const NINO = { x: -3.2, y: 1.35, z: -0.2 };
+const ENZO = { x: 3.2, y: 1.35, z: -0.2 };
+const REGISTRE = { x: 3.5, y: 1.43, z: -2.45 };
 
 let ok = 0;
 let ko = 0;
@@ -76,12 +93,12 @@ const etat = async () => {
 const setYaw = async (t) => {
   await page.evaluate((dx) => window.dispatchEvent(new MouseEvent('mousemove', { movementX: dx })), -(t - yaw) / SENS);
   yaw = t;
-  await page.waitForTimeout(110);
+  await page.waitForTimeout(100);
 };
 const setPitch = async (t) => {
   await page.evaluate((dy) => window.dispatchEvent(new MouseEvent('mousemove', { movementY: dy })), -(t - pitch) / SENS);
   pitch = t;
-  await page.waitForTimeout(110);
+  await page.waitForTimeout(100);
 };
 const viser = async (o, passes = 3) => {
   for (let i = 0; i < passes; i += 1) {
@@ -93,13 +110,14 @@ const viser = async (o, passes = 3) => {
   }
   await page.waitForTimeout(250);
 };
-const allerVers = async (o, arret, maxMs = 20000) => {
+/** Avance en ligne droite. Renvoie vrai si la cible a ete atteinte. */
+const allerVers = async (o, arret, maxMs = 14000) => {
   const t0 = Date.now();
   while (Date.now() - t0 < maxMs) {
     const p = await etat();
     yaw = p.yaw;
     pitch = p.pitch;
-    if (Math.hypot(o.x - p.x, o.z - p.z) <= arret) break;
+    if (Math.hypot(o.x - p.x, o.z - p.z) <= arret) return true;
     await setPitch(0);
     await setYaw(Math.atan2(-(o.x - p.x), -(o.z - p.z)));
     await page.keyboard.down('KeyW');
@@ -107,15 +125,84 @@ const allerVers = async (o, arret, maxMs = 20000) => {
     await page.keyboard.up('KeyW');
     await page.waitForTimeout(80);
   }
-  await page.waitForTimeout(350);
+  return false;
+};
+/** Enchaine des points de passage et annonce le premier qui resiste. */
+const trajet = async (nom, points) => {
+  for (const [i, point] of points.entries()) {
+    const arret = point.arret ?? 0.5;
+    if (!(await allerVers(point, arret))) {
+      const p = await etat();
+      check(`trajet ${nom}`, false, `bloque au point ${i + 1} (${point.x} ; ${point.z}), reste en (${p.x.toFixed(2)} ; ${p.z.toFixed(2)})`);
+      return false;
+    }
+  }
+  await page.waitForTimeout(300);
+  check(`trajet ${nom}`, true);
+  return true;
+};
+
+/* FERMER UN PANNEAU NE REND PAS LA MAIN.
+   Quitter un entretien libere le pointeur : les mouvements de souris
+   ne sont plus recus, seule la marche repond encore, et le joueur
+   avance tout droit dans la direction ou il regardait. Un clic reprend
+   le controle -- c'est exactement ce qu'un joueur fait sans y penser. */
+const reprendreLaMain = async () => {
+  /* Chrome refuse le verrouillage pendant environ une seconde apres un
+     appui sur Echap. On laisse passer ce delai, puis on reessaie. */
+  await page.waitForTimeout(1100);
+  for (let i = 0; i < 5; i += 1) {
+    if (await page.evaluate(() => document.pointerLockElement !== null)) return true;
+    await page.mouse.click(500, 280);
+    await page.waitForTimeout(400);
+  }
+  return page.evaluate(() => document.pointerLockElement !== null);
+};
+
+/** L'etat de la fiche d'objet, panneau ferme compris. */
+const fiche = () =>
+  page.evaluate(() => ({
+    ouverte: !document.querySelector('#info-panel')?.classList.contains('is-hidden'),
+    titre: document.querySelector('.info-title')?.textContent ?? '',
+    texte: document.querySelector('.info-text')?.textContent ?? '',
+  }));
+
+const choix = () =>
+  page.evaluate(() =>
+    [...document.querySelectorAll('.dialogue-choice')].map((e) => ({
+      topic: e.dataset.topic ?? '',
+      texte: e.querySelector('.choice-label')?.textContent ?? '',
+    })),
+  );
+/**
+ * Fait defiler les repliques jusqu'au retour des questions.
+ *
+ * La premiere boucle attend que la liste des questions DISPARAISSE.
+ * Sans elle, « lire » sortait aussitot : la liste est encore a l'ecran
+ * pendant la fraction de seconde qui suit le clic, l'entretien
+ * paraissait fini alors qu'il commencait, et la declaration n'avait
+ * pas encore ete portee au carnet quand on quittait la piece.
+ */
+const lire = async (max = 20) => {
+  for (let i = 0; i < 12; i += 1) {
+    if ((await choix()).length === 0) break;
+    await page.waitForTimeout(200);
+  }
+  for (let i = 0; i < max; i += 1) {
+    if ((await choix()).length > 0) return true;
+    await page.click('#dialogue-line', { force: true }).catch(() => {});
+    await page.waitForTimeout(280);
+  }
+  return (await choix()).length > 0;
 };
 
 // --- 1. Un indice du bureau -------------------------------------------
 
-await allerVers({ x: 0, z: 0.4 }, 0.6);
-await allerVers({ x: 0, z: 3.9 }, 0.6);
-await allerVers({ x: -3.4, z: 3.1 }, 0.6);
-await allerVers(VERRE, 1.3);
+/* On longe le mur sud : l'appareil de presse ferme le passage direct. */
+await trajet('jusqu au verre', [
+  { x: -2.0, z: 3.7 },
+  { x: -3.4, z: 3.5 },
+]);
 await viser(VERRE);
 
 const invite = await page.textContent('#prompt-line');
@@ -123,25 +210,22 @@ check('le viseur annonce le verre', /Examiner le verre/.test(invite), `"${invite
 
 await page.mouse.click(500, 280);
 await page.waitForTimeout(400);
-const fiche = await page.evaluate(() => ({
-  ouverte: !document.querySelector('#info-panel')?.classList.contains('is-hidden'),
-  titre: document.querySelector('.info-title')?.textContent ?? '',
-  texte: document.querySelector('.info-text')?.textContent ?? '',
-}));
-check('la fiche s ouvre sur le bon indice', fiche.ouverte && /verre renvers/i.test(fiche.titre), fiche.titre);
-check('elle porte le texte de l affaire', /sous-main/.test(fiche.texte), fiche.texte.slice(0, 50));
+const fiche1 = await fiche();
+check('la fiche s ouvre sur le bon indice', fiche1.ouverte && /verre renvers/i.test(fiche1.titre), fiche1.titre);
+check('elle porte le texte de l affaire', /sous-main/.test(fiche1.texte), fiche1.texte.slice(0, 50));
 await page.mouse.click(500, 280);
 await page.waitForTimeout(300);
+check('la fiche se referme', (await fiche()).ouverte === false);
 
 // --- 2. Le temoin ------------------------------------------------------
 
-{
-  const p = await etat();
-  yaw = p.yaw;
-  pitch = p.pitch;
-}
-await allerVers({ x: 0, z: 0.2 }, 0.6);
-await allerVers(NINO, 1.9);
+/* Retour par x = 0 : c'est la seule ouverture du passage etroit. */
+await trajet('jusqu a Nino', [
+  { x: -2.0, z: 3.7 },
+  { x: 0, z: 3.7 },
+  { x: 0, z: 0.4 },
+  { x: -2.4, z: -0.2, arret: 0.6 },
+]);
 await viser(NINO);
 
 const invite2 = await page.textContent('#prompt-line');
@@ -156,22 +240,6 @@ const entete = await page.evaluate(() => ({
 }));
 check('l entretien s ouvre sur Nino Restivo', entete.nom.includes('Nino Restivo'), entete.nom);
 check('sa qualite est affichee', /commis/i.test(entete.role), entete.role);
-
-const choix = () =>
-  page.evaluate(() =>
-    [...document.querySelectorAll('.dialogue-choice')].map((e) => ({
-      topic: e.dataset.topic ?? '',
-      texte: e.querySelector('.choice-label')?.textContent ?? '',
-    })),
-  );
-/** Fait defiler les repliques jusqu'au retour des questions. */
-const lire = async (max = 14) => {
-  for (let i = 0; i < max; i += 1) {
-    if ((await choix()).length > 0) break;
-    await page.click('#dialogue-line', { force: true }).catch(() => {});
-    await page.waitForTimeout(280);
-  }
-};
 
 const avant = await choix();
 check('les questions sont celles de l affaire', avant.some((o) => o.topic === 'nino_heure'), JSON.stringify(avant.map((o) => o.texte)));
@@ -188,10 +256,89 @@ check(
   JSON.stringify(apres.map((o) => o.texte)),
 );
 
-// --- 3. Le carnet ------------------------------------------------------
+// --- 3. Le registre ----------------------------------------------------
 
 await page.keyboard.press('Escape');
 await page.waitForTimeout(400);
+check('le joueur reprend la main en sortant de l entretien', await reprendreLaMain());
+
+/* On s'arrete devant la face ouest de la grande caisse : impossible de
+   la traverser, inutile d'essayer. Le registre reste a portee. */
+await trajet('jusqu au registre', [
+  { x: 0, z: -1.8, arret: 0.6 },
+  { x: 2.3, z: -2.3, arret: 0.6 },
+]);
+await viser(REGISTRE);
+
+const invite3 = await page.textContent('#prompt-line');
+check('le viseur annonce le registre', /Examiner le registre/.test(invite3), `"${invite3}"`);
+await page.mouse.click(500, 280);
+await page.waitForTimeout(400);
+const fiche2 = await fiche();
+check('la fiche du registre est la bonne', fiche2.ouverte && /registre des livraisons/i.test(fiche2.titre), fiche2.titre);
+check('la page du 13 est vierge', /vierge/.test(fiche2.texte), fiche2.texte.slice(0, 50));
+await page.mouse.click(500, 280);
+await page.waitForTimeout(300);
+
+/* Deux objets sur la meme caisse : le viseur doit les distinguer. */
+await viser({ x: 3.5, y: 1.41, z: -2.0 });
+const invite3b = await page.textContent('#prompt-line');
+check('les livres voisins restent un autre objet', /Examiner les livres/.test(invite3b), `"${invite3b}"`);
+
+// --- 4. Enzo, et la version qu il doit reprendre ------------------------
+
+await trajet('jusqu a Enzo', [
+  { x: 4.4, z: -0.4, arret: 0.6 },
+  { ...ENZO, arret: 1.7 },
+]);
+await viser(ENZO);
+
+const invite4 = await page.textContent('#prompt-line');
+check('le viseur annonce Enzo Carbone', /Interroger Enzo Carbone/.test(invite4), `"${invite4}"`);
+await page.mouse.click(500, 280);
+await page.waitForTimeout(700);
+
+const enteteEnzo = await page.evaluate(() => document.querySelector('.dialogue-name')?.textContent ?? '');
+check('l entretien s ouvre sur Enzo Carbone', enteteEnzo.includes('Enzo Carbone'), enteteEnzo);
+
+// Il invoque une livraison.
+await page.click('.dialogue-choice[data-topic="enzo_matin"]');
+await page.waitForTimeout(350);
+await lire();
+const avantPiece = await choix();
+check('la reprise n est pas encore proposee', !avantPiece.some((o) => o.topic === 'enzo_matin_reprise'));
+
+// On lui pose le registre sous le nez.
+await page.click('#dialogue-present');
+await page.waitForTimeout(400);
+const pieces = await page.evaluate(() =>
+  [...document.querySelectorAll('.dialogue-choice')].map((e) => e.dataset.evidence ?? ''),
+);
+check(
+  'le registre figure parmi les pieces presentables',
+  pieces.includes('clue:registre_livraisons'),
+  JSON.stringify(pieces),
+);
+await page.click('.dialogue-choice[data-evidence="clue:registre_livraisons"]');
+await page.waitForTimeout(400);
+await lire();
+
+const apresPiece = await choix();
+check(
+  'le registre ouvre la question qu il ne voulait pas',
+  apresPiece.some((o) => o.topic === 'enzo_matin_reprise'),
+  JSON.stringify(apresPiece.map((o) => o.texte)),
+);
+
+await page.click('.dialogue-choice[data-topic="enzo_matin_reprise"]');
+await page.waitForTimeout(350);
+check('la reprise se joue jusqu au bout', await lire());
+
+// --- 5. Le carnet ------------------------------------------------------
+
+await page.keyboard.press('Escape');
+await page.waitForTimeout(400);
+await reprendreLaMain();
 await page.keyboard.press('KeyN');
 await page.waitForTimeout(500);
 
@@ -203,7 +350,11 @@ check('le carnet s ouvre', carnet.ouvert);
 check('l indice est range sous « Le bureau »', /Le bureau/.test(carnet.texte));
 check('la declaration de Nino y figure', /dix heures moins dix/.test(carnet.texte));
 check('le fait acquis y figure', /quitt.* le restaurant/i.test(carnet.texte));
-check('aucun identifiant technique a l ecran', !/nino_|fait_|verre_renverse/.test(carnet.texte));
+check('Enzo a sa propre section', /Enzo Carbone/.test(carnet.texte));
+check('sa premiere version y est', /une livraison/.test(carnet.texte));
+check('sa reprise y est aussi', /tromp.* de jour/i.test(carnet.texte));
+check('mais le carnet ne dit jamais laquelle etait fausse', !/faux|fausse|mensonge|contradiction/i.test(carnet.texte));
+check('aucun identifiant technique a l ecran', !/nino_|enzo_|fait_|registre_livraisons/.test(carnet.texte));
 
 check('aucune erreur de console', erreurs.length === 0, erreurs.join(' | '));
 

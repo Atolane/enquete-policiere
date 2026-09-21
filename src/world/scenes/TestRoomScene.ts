@@ -313,6 +313,17 @@ export class TestRoomScene {
     document.rotation.y = 0.3;
     this.makeExaminable(document, { kind: 'clue', clueId: 'livres_comptes' });
 
+    /* Un registre, sur la meme caisse. Ecarte de 45 cm des livres :
+       assez pour que le viseur distingue les deux sans que le joueur
+       ait a se contorsionner. */
+    const ledger = new THREE.Mesh(
+      new THREE.BoxGeometry(0.26, 0.04, 0.34),
+      this.materials.object,
+    );
+    ledger.position.set(3.5, 1.43, -2.45);
+    ledger.rotation.y = -0.18;
+    this.makeExaminable(ledger, { kind: 'clue', clueId: 'registre_livraisons' });
+
     // --- 3. Un telephone, sur la plateforme en haut de l'escalier ---
     const phoneBase = new THREE.Mesh(
       new THREE.BoxGeometry(0.22, 0.09, 0.16),
@@ -420,6 +431,13 @@ export class TestRoomScene {
     { pos: [0.8, 0, -1.6], yaw: -0.25, tint: 0xa0a8d0, label: 'Mannequin H' },
   ];
 
+  /* Qui incarne qui, dans l'ordre des emplacements ci-dessus. Un
+     emplacement sans temoin reste un mannequin de mesure. */
+  private static readonly TEMOINS: Array<{ id: string; nom: string }> = [
+    { id: 'nino', nom: 'Nino Restivo' },
+    { id: 'enzo', nom: 'Enzo Carbone' },
+  ];
+
   private async loadCharacters(models: ModelLibrary, count: number): Promise<void> {
     if (count <= 0) return; // reference de mesure : aucun personnage
     await this.characterFactory.load(models);
@@ -433,16 +451,16 @@ export class TestRoomScene {
         tint: spot.tint,
       });
 
-      /* Le premier mannequin porte le premier temoin de l'affaire (voir
-         src/data/cases/dernier-service.ts). Les autres restent muets :
+      /* Les premiers mannequins portent les temoins de l'affaire (voir
+         src/data/cases/dernier-service.ts). Au-dela, ils restent muets :
          ils ne servent qu'aux mesures de performance. */
-      const isSuspect = index === 0;
-      const data: Interactable = isSuspect
+      const temoin = TestRoomScene.TEMOINS[index];
+      const data: Interactable = temoin
         ? {
             kind: 'character',
-            characterId: 'nino', // identifiant DANS L'AFFAIRE
-            title: 'Nino Restivo',
-            prompt: 'Interroger Nino Restivo',
+            characterId: temoin.id, // identifiant DANS L'AFFAIRE
+            title: temoin.nom,
+            prompt: `Interroger ${temoin.nom}`,
           }
         : {
             /* Un mannequin de mesure n'appartient pas a l'affaire : il
@@ -461,7 +479,7 @@ export class TestRoomScene {
 
       this.scene.add(character.root);
       this.characters.push(character);
-      if (isSuspect) this.suspects.set('nino', character);
+      if (temoin) this.suspects.set(temoin.id, character);
 
       // Un personnage occupe l'espace : boite de collision invisible,
       // etroite, autour de son axe. La geometrie du personnage lui-meme

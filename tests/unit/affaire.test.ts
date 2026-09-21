@@ -27,12 +27,49 @@ test('l affaire passe le validateur sans un seul probleme', () => {
 });
 
 test('la tranche en cours a la taille annoncee', () => {
-  assert.equal(dernierService.characters.length, 1);
-  assert.equal(dernierService.clues.length, 3);
-  assert.equal(dernierService.facts.length, 6);
-  assert.equal(dernierService.statements.length, 6);
-  assert.equal(dernierService.topics.length, 8);
-  assert.equal(dernierService.reactions.length, 3);
+  assert.equal(dernierService.characters.length, 2);
+  assert.equal(dernierService.clues.length, 4);
+  assert.equal(dernierService.facts.length, 9);
+  assert.equal(dernierService.statements.length, 13);
+  assert.equal(dernierService.topics.length, 16);
+  assert.equal(dernierService.reactions.length, 7);
+});
+
+test('la reprise d Enzo remplace bien sa premiere version', () => {
+  const reprise = dernierService.statements.find((s) => s.id === 'enzo_livraison_reprise');
+  assert.equal(reprise?.supersedes, 'enzo_livraison');
+
+  const premiere = dernierService.statements.find((s) => s.id === 'enzo_livraison');
+  assert.notEqual(premiere, undefined, 'la version remplacee doit exister');
+  assert.equal(premiere?.speaker, reprise?.speaker, 'on ne se reprend que soi-meme');
+});
+
+test('Enzo ment, et le moteur le sait sans jamais le dire', () => {
+  const siens = dernierService.statements.filter((s) => s.speaker === 'enzo');
+  const faux = siens.filter((s) => s.truth === 'false');
+  assert.equal(faux.length >= 3, true, 'il ment sur l heure, la dispute et le matin');
+
+  /* Le champ truth ne doit apparaitre dans AUCUN texte visible : ni
+     dans une replique, ni dans une description d indice. */
+  const visible = [
+    ...dernierService.topics.flatMap((t) => t.lines.map((l) => l.text)),
+    ...dernierService.reactions.flatMap((r) => r.lines.map((l) => l.text)),
+    ...dernierService.clues.map((c) => c.description),
+    ...dernierService.facts.map((f) => f.text),
+  ].join(' ').toLowerCase();
+  /* « ment » tout court ne peut pas servir : c'est une sous-chaine de
+     « seulement », « comment », « egalement ». On cherche donc les
+     mots entiers, accents retires au prealable -- en JavaScript une
+     lettre accentuee n'est pas un caractere de mot, et « \b » se
+     placerait au mauvais endroit. */
+  const sansAccents = visible.normalize('NFD').replace(/[̀-ͯ]/g, '');
+  for (const mot of ['mensonge', 'menteur', 'mentez', 'ment', 'contradiction', 'coupable']) {
+    assert.equal(
+      new RegExp(`\\b${mot}\\b`).test(sansAccents),
+      false,
+      `aucun texte visible ne doit contenir « ${mot} »`,
+    );
+  }
 });
 
 /** Tout ce qu'un personnage prononce : repliques de questions, de

@@ -60,6 +60,18 @@ export const dernierService: CaseData = {
         { speaker: 'nino', text: 'Ça… je sais pas ce que c’est, monsieur.', beat: 'dismiss' },
       ],
     },
+    {
+      id: 'enzo',
+      name: 'Enzo Carbone',
+      role: 'Gérant',
+      /* Il commence FERME, pas nerveux. Nino a peur d'un inspecteur ;
+         Enzo, lui, sait exactement ce qu'il a a cacher, et depuis
+         dix-sept ans il a appris a ne rien laisser voir. */
+      initialMood: 'guarded',
+      defaultReaction: [
+        { speaker: 'enzo', text: 'Je ne vois pas ce que vous voulez que ça me dise.' },
+      ],
+    },
   ],
 
   // --- Ce qu'on ramasse ---------------------------------------------
@@ -93,6 +105,15 @@ export const dernierService: CaseData = {
       prompt: 'Examiner le téléphone',
       description:
         'Le combiné pend au bout de son fil, à côté du fauteuil. Personne ne l’a raccroché.',
+      rubric: 'bureau',
+    },
+    {
+      id: 'registre_livraisons',
+      name: 'Le registre des livraisons',
+      prompt: 'Examiner le registre',
+      description:
+        'Un cahier à colonnes, une ligne par livraison, tenu sans une rature. La page du ' +
+        'samedi 13 est vierge : rien n’était attendu ce matin-là.',
       rubric: 'bureau',
     },
   ],
@@ -130,6 +151,21 @@ export const dernierService: CaseData = {
       text:
         'Les quantités de glace facturées par Adriatica dépassent de loin ce qu’un ' +
         'restaurant de cette taille peut consommer.',
+      topic: 'Les comptes',
+    },
+    {
+      id: 'fait_enzo_a_la_cle',
+      text: 'Enzo Carbone détient l’une des deux clés du local arrière.',
+      topic: 'Le local arrière',
+    },
+    {
+      id: 'fait_victor_verifiait',
+      text: 'Victor Bellini vérifiait les livres de comptes du restaurant.',
+      topic: 'Les comptes',
+    },
+    {
+      id: 'fait_aldo_tient_les_comptes',
+      text: 'Les comptes sont tenus par Aldo Maglione, le neveu du patron, depuis le printemps.',
       topic: 'Les comptes',
     },
   ],
@@ -186,6 +222,64 @@ export const dernierService: CaseData = {
         'l’allume en novembre, on a le fourneau.',
       topic: 'La maison',
       truth: 'true',
+    },
+
+    // --- Enzo ---------------------------------------------------------
+    {
+      id: 'enzo_soiree',
+      speaker: 'enzo',
+      text: 'Service normal. J’ai fermé, j’ai fait la caisse, je suis rentré.',
+      topic: 'Emploi du temps',
+      truth: 'partial',
+    },
+    {
+      id: 'enzo_2215',
+      speaker: 'enzo',
+      text: 'Je suis parti vers dix heures et quart. Victor travaillait encore.',
+      topic: 'Emploi du temps',
+      claimedTime: '22:15',
+      truth: 'false',
+    },
+    {
+      id: 'enzo_pas_de_mots',
+      speaker: 'enzo',
+      text: 'Nous n’avons pas eu de mots. Victor et moi, jamais en onze ans.',
+      topic: 'Les gens',
+      truth: 'false',
+    },
+    {
+      id: 'enzo_cle',
+      speaker: 'enzo',
+      text: 'J’ai une clé du fond, oui. Monsieur Maglione aussi. C’est tout.',
+      topic: 'Le local arrière',
+      truth: 'true',
+    },
+    {
+      id: 'enzo_victor',
+      speaker: 'enzo',
+      text: 'Il vérifiait les livres. C’était son travail, et il le faisait bien.',
+      topic: 'Les gens',
+      truth: 'true',
+    },
+    {
+      id: 'enzo_livraison',
+      speaker: 'enzo',
+      text: 'Je suis venu tôt pour une livraison. Le poisson arrive avant l’ouverture.',
+      topic: 'Le matin du 13',
+      claimedTime: '07:00',
+      truth: 'false',
+    },
+    {
+      /* LA REPRISE. Confronte au registre, Enzo ne cede pas : il
+         ajuste. C'est exactement l'homme qu'il est -- et le carnet
+         montrera les deux versions cote a cote, sans jamais dire
+         laquelle etait fausse. */
+      id: 'enzo_livraison_reprise',
+      speaker: 'enzo',
+      text: 'Je me suis trompé de jour. La livraison, c’est le mercredi. Je viens tôt, voilà tout.',
+      topic: 'Le matin du 13',
+      truth: 'false',
+      supersedes: 'enzo_livraison',
     },
   ],
 
@@ -322,6 +416,111 @@ export const dernierService: CaseData = {
       records: ['nino_poele'],
       effects: { revealFacts: ['fait_cendres'] },
     },
+
+    // --- Enzo ---------------------------------------------------------
+    {
+      id: 'enzo_relance',
+      speaker: 'enzo',
+      question: 'Autre chose ?',
+      category: 'ouverture',
+      once: false,
+      lines: [
+        { speaker: 'detective', text: 'Autre chose ?' },
+        { speaker: 'enzo', text: 'Non. Je vous ai dit ce que je sais.' },
+      ],
+    },
+    {
+      id: 'enzo_soiree',
+      speaker: 'enzo',
+      question: 'Racontez-moi votre soirée.',
+      category: 'ouverture',
+      lines: [
+        { speaker: 'detective', text: 'Votre soirée d’hier.' },
+        { speaker: 'enzo', text: 'Service normal. J’ai fermé, j’ai fait la caisse, je suis rentré.' },
+      ],
+      records: ['enzo_soiree'],
+    },
+    {
+      id: 'enzo_heure',
+      speaker: 'enzo',
+      question: 'À quelle heure êtes-vous parti ?',
+      category: 'emploi du temps',
+      lines: [
+        { speaker: 'detective', text: 'À quelle heure êtes-vous parti, hier soir ?' },
+        { speaker: 'enzo', text: 'Vers dix heures et quart.', pause: 0.3 },
+        { speaker: 'enzo', text: 'Victor travaillait encore. Il travaillait toujours.' },
+      ],
+      records: ['enzo_2215'],
+    },
+    {
+      id: 'enzo_dispute',
+      speaker: 'enzo',
+      question: 'Vous êtes-vous disputés ?',
+      category: 'pression',
+      lines: [
+        { speaker: 'detective', text: 'Vous vous êtes disputés, ce soir-là ?' },
+        { speaker: 'enzo', text: 'Non.', beat: 'deny', pause: 0.5 },
+        { speaker: 'enzo', text: 'Nous n’avons pas eu de mots. Victor et moi, jamais en onze ans.' },
+      ],
+      records: ['enzo_pas_de_mots'],
+    },
+    {
+      id: 'enzo_cles',
+      speaker: 'enzo',
+      question: 'Qui a la clé du local arrière ?',
+      category: 'les faits',
+      lines: [
+        { speaker: 'detective', text: 'Le local, au fond. Qui en a la clé ?' },
+        { speaker: 'enzo', text: 'J’ai une clé du fond, oui. Monsieur Maglione aussi. C’est tout.' },
+      ],
+      records: ['enzo_cle'],
+      effects: { revealFacts: ['fait_enzo_a_la_cle'] },
+    },
+    {
+      id: 'enzo_victor',
+      speaker: 'enzo',
+      question: 'Parlez-moi de Victor Bellini.',
+      category: 'les gens',
+      lines: [
+        { speaker: 'detective', text: 'Parlez-moi de lui.' },
+        { speaker: 'enzo', text: 'Il vérifiait les livres. C’était son travail, et il le faisait bien.' },
+        { speaker: 'enzo', text: 'Un homme correct. Ça se paie, parfois.', beat: 'think', pause: 0.6 },
+      ],
+      records: ['enzo_victor'],
+      effects: { revealFacts: ['fait_victor_verifiait'] },
+    },
+    {
+      id: 'enzo_matin',
+      speaker: 'enzo',
+      question: 'Vous êtes arrivé avant l’ouverture.',
+      category: 'emploi du temps',
+      lines: [
+        { speaker: 'detective', text: 'Ce matin, vous étiez là bien avant l’ouverture.' },
+        { speaker: 'enzo', text: 'Je suis venu tôt pour une livraison.', pause: 0.3 },
+        { speaker: 'enzo', text: 'Le poisson arrive avant l’ouverture.' },
+      ],
+      records: ['enzo_livraison'],
+    },
+    {
+      /* Masquee. Rien ne l'ouvre qu'un registre pose sous son nez --
+         voir la reaction plus bas. */
+      id: 'enzo_matin_reprise',
+      speaker: 'enzo',
+      question: 'Ce registre ne mentionne aucune livraison.',
+      category: 'pression',
+      hidden: true,
+      lines: [
+        { speaker: 'detective', text: 'Rien n’était prévu ce matin-là. C’est écrit.' },
+        { speaker: 'enzo', text: '…', beat: 'think', pause: 1.2 },
+        {
+          speaker: 'enzo',
+          text: 'Je me suis trompé de jour. La livraison, c’est le mercredi.',
+        },
+        { speaker: 'enzo', text: 'Je viens tôt, voilà tout. Depuis onze ans.', beat: 'dismiss' },
+      ],
+      records: ['enzo_livraison_reprise'],
+      effects: { setMood: 'nervous' },
+    },
   ],
 
   // --- Ce qu'il dit devant un objet -----------------------------------
@@ -358,6 +557,54 @@ export const dernierService: CaseData = {
         { speaker: 'detective', text: 'Ce verre.' },
         { speaker: 'nino', text: 'Il buvait dans le sien. Il l’aimait pas, notre verrerie.' },
         { speaker: 'nino', text: 'Il gardait sa bouteille dans le tiroir.', beat: 'think' },
+      ],
+    },
+
+    // --- Enzo ---------------------------------------------------------
+    {
+      /* LE REGISTRE POSE SOUS SON NEZ.
+         Conditionne a ce qu'il ait DEJA invoque la livraison : avant
+         cela, un cahier de livraisons ne lui dit rien, et sa reponse
+         generique suffit. On ne prend pas quelqu'un en defaut sur une
+         chose qu'il n'a pas encore dite. */
+      character: 'enzo',
+      clue: 'registre_livraisons',
+      requires: { topicsAsked: ['enzo_matin'] },
+      lines: [
+        { speaker: 'detective', text: 'Votre registre.' },
+        { speaker: 'enzo', text: 'Oui. Et alors ?', beat: 'deny', pause: 0.8 },
+      ],
+      effects: { unlockTopics: ['enzo_matin_reprise'] },
+    },
+    {
+      /* UNE DECLARATION PRESENTEE COMME UNE PIECE.
+         Le joueur rapporte a Enzo ce que Nino lui a dit. Enzo ne nie
+         pas -- nier serait avouer que la chose compte. */
+      character: 'enzo',
+      statement: 'nino_local',
+      lines: [
+        { speaker: 'detective', text: 'On vous a vu prendre quelque chose au fond, l’autre jour.' },
+        { speaker: 'enzo', text: 'Je vais au fond dix fois par jour. C’est ma réserve.' },
+        { speaker: 'enzo', text: 'Le petit a de bons yeux.', beat: 'dismiss', pause: 0.5 },
+      ],
+      effects: { setMood: 'nervous' },
+    },
+    {
+      character: 'enzo',
+      clue: 'livres_comptes',
+      lines: [
+        { speaker: 'detective', text: 'Les comptes du restaurant.' },
+        { speaker: 'enzo', text: 'Je ne les tiens pas. C’est le neveu, depuis le printemps.' },
+        { speaker: 'enzo', text: 'Moi je fais la salle et la caisse du soir.' },
+      ],
+      effects: { revealFacts: ['fait_aldo_tient_les_comptes'] },
+    },
+    {
+      character: 'enzo',
+      clue: 'combine_decroche',
+      lines: [
+        { speaker: 'detective', text: 'Le téléphone était décroché.' },
+        { speaker: 'enzo', text: 'Je n’y ai pas touché. On ne touche à rien, dans ces cas-là.' },
       ],
     },
   ],
