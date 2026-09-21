@@ -23,6 +23,9 @@ import type { Character } from '../world/Character';
 export class Hud {
   private readonly lockPanel: HTMLDivElement;
   private readonly crosshair: HTMLDivElement;
+  /** Le mot que le jeu dit au joueur, et le minuteur qui l'efface. */
+  private readonly leadLine: HTMLDivElement;
+  private leadTimer: number | null = null;
   private readonly promptLine: HTMLDivElement;
   private readonly infoPanel: HTMLDivElement;
   private readonly infoTitle: HTMLParagraphElement;
@@ -65,6 +68,16 @@ export class Hud {
     this.crosshair = document.createElement('div');
     this.crosshair.id = 'crosshair';
     layer.appendChild(this.crosshair);
+
+    /* LA LIGNE DES PISTES.
+       Le seul endroit du jeu d'ou le jeu s'adresse au joueur. Elle est
+       au-dessus du viseur, a l'ecart du libelle d'action, et elle
+       s'efface toute seule : ce qu'elle dit se lit en passant et ne
+       demande aucun geste. */
+    this.leadLine = document.createElement('div');
+    this.leadLine.id = 'lead-line';
+    this.leadLine.classList.add('is-hidden');
+    layer.appendChild(this.leadLine);
 
     this.promptLine = document.createElement('div');
     this.promptLine.id = 'prompt-line';
@@ -179,6 +192,26 @@ export class Hud {
       this.locked || this.inDialogue || this.inNotebook,
     );
     this.refreshCrosshair();
+  }
+
+  /**
+   * Affiche une piste, puis l'efface.
+   *
+   * @param texte    la phrase a lire. Elle nomme une personne, jamais
+   *   une question, et n'explique jamais ce qui l'a ouverte.
+   * @param duree_ms combien de temps elle reste. Quatre secondes pour
+   *   la phrase courte ; la phrase d'explication, qui fait trois fois
+   *   sa longueur, en demande davantage -- une consigne qu'on n'a pas
+   *   le temps de lire ne vaut pas mieux que pas de consigne du tout.
+   */
+  showLead(texte: string, duree_ms = 4000): void {
+    if (this.leadTimer !== null) window.clearTimeout(this.leadTimer);
+    this.leadLine.textContent = texte;
+    this.leadLine.classList.remove('is-hidden');
+    this.leadTimer = window.setTimeout(() => {
+      this.leadLine.classList.add('is-hidden');
+      this.leadTimer = null;
+    }, duree_ms);
   }
 
   /**

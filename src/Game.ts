@@ -181,6 +181,10 @@ export class Game {
     }
     this.interrogation = new Interrogation(this.dialogue, this.state, this.dialogueUI);
     this.dialogueUI.onLeave = () => this.endInterrogation();
+    /* Le seul endroit d'ou le jeu s'adresse au joueur. Le moteur decide
+       QUAND et CHEZ QUI ; le HUD ne fait que l'afficher quatre
+       secondes. */
+    this.interrogation.onLead = (texte, duree) => this.hud.showLead(texte, duree);
 
     this.casebook = new Casebook(this.dialogue, this.state);
 

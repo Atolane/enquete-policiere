@@ -100,6 +100,23 @@
   transition: background-color 0.12s ease, border-color 0.12s ease;
 }
 
+/* LA MARQUE « NOUVEAU ».
+   Elle repond a une seule question : « celle-la, je l'avais deja vue ? »
+   Elle ne dit pas que la question est importante, ni qu'elle vient
+   d'une piece en particulier. Discrete a dessein : un joueur qui la
+   cherche la trouve, un joueur qui lit sa liste ne trouve pas qu'on lui
+   force la main. */
+.choice-new {
+  flex: 0 0 auto;
+  margin-left: 8px;
+  padding: 1px 7px;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #0b0d11;
+  background: #f0c98a;
+}
+
 .dialogue-choice:hover,
 .dialogue-choice:focus-visible {
   background: rgba(240, 201, 138, 0.09);

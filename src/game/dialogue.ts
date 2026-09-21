@@ -128,6 +128,45 @@ export class DialogueEngine {
     });
   }
 
+  /**
+   * Les questions disponibles chez ce personnage que le joueur n'a
+   * encore JAMAIS vues proposees.
+   *
+   * « Jamais vue » et « pas encore posee » ne sont pas la meme chose.
+   * La seconde est presque toujours vraie et ne signale rien ; seule la
+   * premiere dit qu'il s'est passe quelque chose depuis le dernier
+   * passage.
+   */
+  unseenTopics(character: CharacterId): DialogueTopic[] {
+    return this.availableTopics(character).filter((t) => !this.state.hasSeen(t.id));
+  }
+
+  /** Le joueur s'est-il deja assis en face de cette personne ? */
+  hasMet(character: CharacterId): boolean {
+    return this.data.topics.some((t) => t.speaker === character && this.state.hasSeen(t.id));
+  }
+
+  /**
+   * Les personnes chez qui une piste attend.
+   *
+   * Deux conditions, et la seconde compte autant que la premiere :
+   * quelque chose de neuf est posable chez elles, ET le joueur les a
+   * deja rencontrees. On ne renvoie personne vers quelqu'un qu'il n'a
+   * jamais vu : aller faire connaissance est le cours normal du jeu, et
+   * annoncer une piste chez un inconnu reviendrait a designer d'avance
+   * les gens qui comptent.
+   */
+  leads(): CharacterId[] {
+    return this.data.characters
+      .map((sheet) => sheet.id)
+      .filter((id) => this.hasMet(id) && this.unseenTopics(id).length > 0);
+  }
+
+  /** Combien de personnes le joueur a deja interrogees. */
+  metCount(): number {
+    return this.data.characters.filter((sheet) => this.hasMet(sheet.id)).length;
+  }
+
   private isAvailable(topic: DialogueTopic): boolean {
     // Une question debloquee par un effet passe outre ses conditions :
     // le personnage a lui-meme ouvert le sujet.

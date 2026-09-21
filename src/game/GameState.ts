@@ -25,6 +25,20 @@ export interface InvestigationState {
   askedTopics: TopicId[];
   /** Questions rendues disponibles par un effet de dialogue. */
   unlockedTopics: TopicId[];
+  /**
+   * Questions que le joueur a VU proposer, qu'il les ait posees ou non.
+   *
+   * Sert a une seule chose : distinguer « je ne l'ai pas encore posee »
+   * de « je ne l'avais encore jamais vue ». Sans cette liste, le jeu ne
+   * peut pas marquer une question comme nouvelle, ni dire chez qui
+   * quelque chose a bouge -- il ne saurait que designer tous ceux qui
+   * ont encore une question disponible, c'est-a-dire presque tout le
+   * monde, presque tout le temps.
+   *
+   * Ajoutee apres coup : une sauvegarde ecrite avant son existence se
+   * relit sans erreur et repart avec une liste vide (voir save.ts).
+   */
+  seenTopics: TopicId[];
   /** Elements deja presentes, sous la forme « personnage|kind:id ». */
   presentedEvidence: string[];
   moods: Record<CharacterId, Mood>;
@@ -38,6 +52,7 @@ export function createState(): InvestigationState {
     knownFacts: [],
     askedTopics: [],
     unlockedTopics: [],
+    seenTopics: [],
     presentedEvidence: [],
     moods: {},
   };
@@ -98,6 +113,11 @@ export class GameState {
     return this.data.knownFacts.includes(id);
   }
 
+  /** Cette question a-t-elle deja ete proposee au joueur ? */
+  hasSeen(id: TopicId): boolean {
+    return this.data.seenTopics.includes(id);
+  }
+
   hasHeard(id: StatementId): boolean {
     return this.data.heardStatements.includes(id);
   }
@@ -140,6 +160,11 @@ export class GameState {
     return this.push('unlockedTopics', id);
   }
 
+  /** Note qu'une question a ete PROPOSEE au joueur, posee ou non. */
+  markSeen(id: TopicId): boolean {
+    return this.push('seenTopics', id);
+  }
+
   markPresented(character: CharacterId, key: string): boolean {
     return this.push('presentedEvidence', `${character}|${key}`);
   }
@@ -169,7 +194,7 @@ export class GameState {
   /** Ajoute un identifiant s'il n'y est pas deja. Renvoie true si ajoute. */
   private push(
     key: 'discoveredClues' | 'heardStatements' | 'knownFacts' | 'askedTopics'
-      | 'unlockedTopics' | 'presentedEvidence',
+      | 'unlockedTopics' | 'seenTopics' | 'presentedEvidence',
     id: string,
   ): boolean {
     const list = this.data[key];

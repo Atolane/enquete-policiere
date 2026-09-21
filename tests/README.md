@@ -35,7 +35,7 @@ Ce répertoire corrige cela pour la partie qui peut l'être tout de suite.
 
 ### `unit/` — le socle
 
-Cinq suites, sans navigateur, sans serveur, sans dépendance. **145 tests, 0 échec.**
+Six suites, sans navigateur, sans serveur, sans dépendance. **159 tests, 0 échec.**
 
 | Fichier | Ce qu'il couvre |
 | --- | --- |
@@ -43,6 +43,7 @@ Cinq suites, sans navigateur, sans serveur, sans dépendance. **145 tests, 0 éc
 | `etat.test.ts` | `GameState` : pas de doublon, humeurs, abonnés prévenus une seule fois |
 | `carnet.test.ts` | `Casebook` : regroupement, changements de version, repli « Sans rubrique » |
 | `sauvegarde.test.ts` | `parseSave` : défauts de forme contre identifiants disparus |
+| `pistes.test.ts` | le guidage : `seenTopics`, qui est une piste et surtout qui ne l'est pas, la rubrique « À vérifier », et les sauvegardes écrites avant tout cela |
 | `affaire.test.ts` | « Le dernier service » : le validateur, la taille de la tranche, la reprise d'Enzo, la retenue de Rosa, les contradictions Enzo / Aldo et Enzo / Rosa, la prudence des deux bulletins de laboratoire, les deux verrous de la contre-épreuve, les prérequis des questions tardives, et les mots qu'un témoin ne peut pas prononcer |
 
 Les modules testés n'importent ni Three.js ni le DOM, ce qui est précisément la raison pour
@@ -51,8 +52,8 @@ laquelle ils sont testables ainsi.
 ### `browser/` — une suite à jour, huit héritées
 
 `affaire.mjs` vise **l'affaire réelle** et a été écrite *et rejouée* au moment de son versement :
-**172 contrôles, 0 échec**, trois exécutions de suite. C'est le scénario de référence pour la
-Phase 9. Elle couvre les sept tranches en un seul parcours : l'agent Doyle à la porte ; le
+**204 contrôles, 0 échec**, trois exécutions de suite. C'est le scénario de référence pour la
+Phase 9. Elle couvre les sept tranches et le guidage, en un seul parcours : l'agent Doyle à la porte ; le
 verre renversé, la bouteille d'anisette et la trace sur l'étagère du local arrière ; le
 retour chez Doyle, où le prélèvement rapporté trop tôt **ne débloque rien** ; la bouteille,
 le résultat préliminaire, puis le prélèvement redonné et la contre-épreuve ; Nino Restivo ;

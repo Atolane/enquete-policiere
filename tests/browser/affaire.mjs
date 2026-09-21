@@ -258,8 +258,16 @@ const choix = () =>
     [...document.querySelectorAll('.dialogue-choice')].map((e) => ({
       topic: e.dataset.topic ?? '',
       texte: e.querySelector('.choice-label')?.textContent ?? '',
+      nouveau: e.querySelector('.choice-new') !== null,
     })),
   );
+
+/** La ligne des pistes : son texte, et si elle est visible. */
+const piste = () =>
+  page.evaluate(() => ({
+    visible: !document.querySelector('#lead-line')?.classList.contains('is-hidden'),
+    texte: document.querySelector('#lead-line')?.textContent ?? '',
+  }));
 /**
  * Fait defiler les repliques jusqu'au retour des questions.
  *
@@ -468,6 +476,36 @@ check(
   JSON.stringify(doyleApres.map((o) => o.texte)),
 );
 
+/* LE GUIDAGE, A SA PREMIERE APPARITION DE LA PARTIE.
+   C'est la premiere fois qu'une piste s'ouvre : le jeu explique la
+   regle au lieu de donner un nom. Un joueur qui ignore encore qu'un
+   entretien peut changer ne saurait pas quoi faire d'un nom. */
+const lecon = await piste();
+check('la ligne des pistes s affiche', lecon.visible, JSON.stringify(lecon.texte));
+check(
+  'la premiere fois, elle explique la regle',
+  /Ce que vous apprenez peut ouvrir de nouvelles questions/.test(lecon.texte),
+  lecon.texte,
+);
+check(
+  'elle parle de personnes deja interrogees',
+  /approfondies auprès des personnes déjà interrogées/.test(lecon.texte),
+  lecon.texte,
+);
+check('elle ne nomme aucune question', !/laboratoire|chimiste|bouteille/i.test(lecon.texte), lecon.texte);
+check('elle n accuse personne', !/ment|menteur|coupable|cache/i.test(lecon.texte), lecon.texte);
+
+check(
+  'la question qui vient de s ouvrir porte la marque « nouveau »',
+  doyleApres.find((o) => o.topic === 'doyle_resultat')?.nouveau === true,
+  JSON.stringify(doyleApres.map((o) => `${o.topic}:${o.nouveau}`)),
+);
+check(
+  'les questions deja vues ne la portent pas',
+  doyleApres.filter((o) => o.topic === 'doyle_relance' || o.topic === 'doyle_medecin').every((o) => o.nouveau === false),
+  JSON.stringify(doyleApres.map((o) => `${o.topic}:${o.nouveau}`)),
+);
+
 await cliquerChoix('.dialogue-choice[data-topic="doyle_resultat"]');
 await page.waitForTimeout(350);
 const repliques = await lireEnNotant();
@@ -516,6 +554,29 @@ check(
   JSON.stringify(doyleContre.map((o) => o.texte)),
 );
 
+/* LA SECONDE PISTE. La lecon a deja ete donnee : cette fois c'est la
+   phrase courte, avec un nom et rien d'autre. */
+const piste2 = await piste();
+check('la ligne des pistes revient', piste2.visible, JSON.stringify(piste2.texte));
+check(
+  'cette fois elle donne la phrase courte',
+  /Une nouvelle piste mérite d’être approfondie auprès de/.test(piste2.texte),
+  piste2.texte,
+);
+check('elle nomme la personne', /Agent Doyle/.test(piste2.texte), piste2.texte);
+check('elle ne redonne pas la lecon', !/Ce que vous apprenez/.test(piste2.texte), piste2.texte);
+check('elle ne nomme toujours aucune question', !/comparaison|prélèvement|étagère/i.test(piste2.texte), piste2.texte);
+check(
+  'la contre-epreuve porte la marque « nouveau »',
+  doyleContre.find((o) => o.topic === 'doyle_contre_epreuve')?.nouveau === true,
+  JSON.stringify(doyleContre.map((o) => `${o.topic}:${o.nouveau}`)),
+);
+
+/* Elle s'efface toute seule. Quatre secondes annoncees, on laisse une
+   marge : ce qu'on verifie ici, c'est qu'elle ne reste pas a l'ecran. */
+await page.waitForTimeout(5200);
+check('puis elle s efface sans qu on y touche', (await piste()).visible === false);
+
 await cliquerChoix('.dialogue-choice[data-topic="doyle_contre_epreuve"]');
 await page.waitForTimeout(350);
 const contre = await lireEnNotant();
@@ -530,6 +591,13 @@ check('il ne nomme ni produit, ni fabricant, ni personne', /ni le produit/i.test
 check('le mot « lot » n est jamais prononce', !/\blots?\b/i.test(contre), contre.slice(0, 140));
 check('le mot « concentration » non plus', !/concentration/i.test(contre));
 check('il ne designe toujours personne', !/coupable|assassin|empoisonn/i.test(contre));
+
+const dejaVues = await choix();
+check(
+  'une fois vues, les questions perdent leur marque',
+  dejaVues.every((o) => o.nouveau === false),
+  JSON.stringify(dejaVues.map((o) => `${o.topic}:${o.nouveau}`)),
+);
 
 await page.keyboard.press('Escape');
 await page.waitForTimeout(400);
@@ -573,6 +641,27 @@ check(
 await cliquerChoix('.dialogue-choice[data-topic="nino_pourquoi_tot"]');
 await page.waitForTimeout(350);
 check('il dit pourquoi il est parti tot', await lire());
+
+// --- 2 bis. Un bonjour a Rosa ------------------------------------------
+
+/* Vingt secondes de marche qui changent tout pour la suite : une piste
+   ne se signale que chez quelqu'un que le joueur a DEJA rencontre. Sans
+   ce detour, la question du poele s'ouvrirait chez une inconnue, et le
+   jeu aurait raison de ne rien dire. */
+await page.keyboard.press('Escape');
+await page.waitForTimeout(400);
+check('le joueur reprend la main en sortant de chez Nino', await reprendreLaMain());
+
+await trajet('bonjour a Rosa', [
+  { x: -1.6, z: -1.6, arret: 0.6 },
+  { x: 0, z: -2.4, arret: 0.6 },
+  { ...ROSA, arret: 1.7 },
+]);
+await viserJusqua(ROSA, /Interroger Rosa Vitale/);
+await page.mouse.click(500, 280);
+const bonjour = await attendreEntretien('Rosa Vitale');
+check('on fait sa connaissance', bonjour.ouvert && bonjour.nom.includes('Rosa Vitale'), bonjour.nom);
+check('sa liste ne porte pas encore la question du poele', !(await choix()).some((o) => o.topic === 'rosa_poele'));
 
 // --- 3. Le registre ----------------------------------------------------
 
@@ -646,9 +735,46 @@ await cliquerChoix('.dialogue-choice[data-topic="nino_poele"]');
 await page.waitForTimeout(350);
 check('il repond sur le poele', await lire());
 
+/* LA PISTE QUI S'OUVRE AILLEURS -- tout le probleme, et sa reponse.
+   Le joueur est en face de Nino ; ce que Nino vient de dire ouvre une
+   question chez Rosa, a l'autre bout de la piece. Il ne peut pas le
+   voir : on le lui dit. */
+const pisteRosa = await piste();
+check('la ligne des pistes signale l autre temoin', pisteRosa.visible, JSON.stringify(pisteRosa.texte));
+check(
+  'elle nomme Rosa Vitale',
+  /Une nouvelle piste mérite d’être approfondie auprès de Rosa Vitale\./.test(pisteRosa.texte),
+  pisteRosa.texte,
+);
+check('elle ne dit pas de quoi il s agit', !/poêle|cendres|feu/i.test(pisteRosa.texte), pisteRosa.texte);
+check('elle ne dit pas pourquoi la question s est ouverte', !/parce que|car /i.test(pisteRosa.texte), pisteRosa.texte);
+check('elle n accuse personne', !/ment|menteur|coupable|suspect/i.test(pisteRosa.texte), pisteRosa.texte);
+
 await page.keyboard.press('Escape');
 await page.waitForTimeout(400);
 check('le joueur reprend la main en quittant Nino', await reprendreLaMain());
+
+/* ET LE CARNET S'EN SOUVIENT. La ligne s'efface au bout de quatre
+   secondes ; un joueur qui repose le jeu ici doit pouvoir retrouver ou
+   revenir. C'est a cela, et a rien d'autre, que sert « A verifier ». */
+await page.keyboard.press('KeyN');
+await page.waitForTimeout(500);
+const rappel = await page.evaluate(() => ({
+  ouvert: !document.querySelector('#notebook-panel')?.classList.contains('is-hidden'),
+  texte: document.querySelector('#notebook-body')?.textContent ?? '',
+  noms: [...document.querySelectorAll('.notebook-lead')].map((e) => e.textContent ?? ''),
+}));
+check('le carnet porte la rubrique « A verifier »', rappel.ouvert && /À vérifier/.test(rappel.texte));
+check('elle nomme Rosa Vitale', rappel.noms.some((n) => n.includes('Rosa Vitale')), JSON.stringify(rappel.noms));
+check('elle ne nomme qu elle', rappel.noms.length === 1, JSON.stringify(rappel.noms));
+check(
+  'elle ne dit pas ce qu il y a a lui demander',
+  rappel.noms.every((n) => !/poêle|question|cendres/i.test(n)),
+  JSON.stringify(rappel.noms),
+);
+await page.keyboard.press('KeyN');
+await page.waitForTimeout(400);
+check('le carnet se referme', await reprendreLaMain());
 
 // --- 4. Enzo, et la version qu il doit reprendre ------------------------
 
@@ -767,6 +893,22 @@ check(
   JSON.stringify(rosaAvant.map((o) => o.texte)),
 );
 
+/* LA MARQUE, A L'INSTANT OU ELLE COMPTE : la toute premiere liste
+   affichee depuis que la piste s'est ouverte ailleurs. Une liste plus
+   tard, la question a ete vue et ne se distingue plus -- c'est le
+   comportement voulu, et c'est pourquoi ce controle est ici et pas
+   trois lignes plus bas. */
+check(
+  'la question ouverte pendant son absence porte la marque « nouveau »',
+  rosaAvant.find((o) => o.topic === 'rosa_poele')?.nouveau === true,
+  JSON.stringify(rosaAvant.map((o) => `${o.topic}:${o.nouveau}`)),
+);
+check(
+  'celles vues lors du bonjour ne la portent pas',
+  rosaAvant.filter((o) => o.topic === 'rosa_relance' || o.topic === 'rosa_nino').every((o) => o.nouveau === false),
+  JSON.stringify(rosaAvant.map((o) => `${o.topic}:${o.nouveau}`)),
+);
+
 await cliquerChoix('.dialogue-choice[data-topic="rosa_fermeture"]');
 await page.waitForTimeout(350);
 check('elle repond sur la fermeture', await lire());
@@ -792,6 +934,7 @@ check(
   rosaApres.some((o) => o.topic === 'rosa_poele'),
   JSON.stringify(rosaApres.map((o) => o.texte)),
 );
+
 
 await cliquerChoix('.dialogue-choice[data-topic="rosa_depart"]');
 await page.waitForTimeout(350);
@@ -1030,6 +1173,17 @@ const carnet = await page.evaluate(() => ({
   texte: document.querySelector('#notebook-body')?.textContent ?? '',
 }));
 check('le carnet s ouvre', carnet.ouvert);
+/* « A verifier » n'apparait que s'il y a quelque chose a verifier. A ce
+   stade du parcours, chaque piste ouverte l'a ete dans la liste que le
+   joueur avait sous les yeux : il les a toutes vues, et le carnet n'a
+   donc rien a lui rappeler. Une rubrique qui s'afficherait quand meme
+   dirait au joueur qu'on attend quelque chose de lui, ce qui serait
+   faux -- et la ferait glisser vers la liste de courses. */
+check(
+  'le carnet ne reclame rien quand rien n attend',
+  !/À vérifier/.test(carnet.texte),
+  carnet.texte.slice(0, 80),
+);
 check('l indice est range sous « Le bureau »', /Le bureau/.test(carnet.texte));
 check('la declaration de Nino y figure', /dix heures moins dix/.test(carnet.texte));
 check('le fait acquis y figure', /quitt.* le restaurant/i.test(carnet.texte));

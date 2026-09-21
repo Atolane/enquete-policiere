@@ -175,7 +175,14 @@ export class Notebook {
   }
 
   private render(view: CasebookView): void {
+    /* « A verifier » passe EN TETE, et non a la suite des trois autres.
+       Le dossier fait plusieurs ecrans de haut des la moitie de
+       l'enquete ; une rubrique posee en bas ne serait jamais lue, et
+       une indication qu'on ne lit pas ne guide personne. C'est la seule
+       partie du carnet qui demande une action, elle est donc la ou l'on
+       regarde en ouvrant. Absente quand il n'y a rien. */
     this.body.replaceChildren(
+      ...(view.leads.length > 0 ? [leads(view.leads)] : []),
       rubric(`Indices (${view.counts.clues})`, view.clues, 'Rien de ramassé pour l’instant.'),
       rubric(
         `Déclarations (${view.counts.statements})`,
@@ -185,6 +192,31 @@ export class Notebook {
       rubric(`Faits acquis (${view.counts.facts})`, view.facts, 'Rien d’établi pour l’instant.'),
     );
   }
+}
+
+/**
+ * « A verifier » : les personnes chez qui quelque chose attend.
+ *
+ * Un nom par ligne, suivi d'une phrase qui ne dit rien de plus. Pas de
+ * sujet, pas de raison, pas de compte : le joueur apprend ou revenir,
+ * jamais ce qu'il y trouvera.
+ */
+function leads(noms: string[]): HTMLElement {
+  const block = document.createElement('section');
+  block.className = 'notebook-rubric notebook-leads';
+
+  const heading = document.createElement('h2');
+  heading.className = 'rubric-title';
+  heading.textContent = 'À vérifier';
+  block.appendChild(heading);
+
+  for (const nom of noms) {
+    const ligne = document.createElement('p');
+    ligne.className = 'notebook-lead';
+    ligne.textContent = `${nom} — il reste quelque chose à lui demander.`;
+    block.appendChild(ligne);
+  }
+  return block;
 }
 
 /** Une des trois rubriques du dossier. */

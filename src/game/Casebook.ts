@@ -67,6 +67,14 @@ export interface CasebookSection {
 
 /** Tout le dossier, pret a etre dessine. */
 export interface CasebookView {
+  /**
+   * Les personnes chez qui quelque chose de neuf attend.
+   *
+   * Un NOM, et rien d'autre : ni la question, ni son sujet, ni ce qui
+   * l'a ouverte. Le carnet dit ou revenir ; il ne dit jamais pourquoi,
+   * et il ne dira jamais quoi en penser.
+   */
+  leads: string[];
   clues: CasebookSection[];
   statements: CasebookSection[];
   facts: CasebookSection[];
@@ -81,6 +89,7 @@ export class Casebook {
 
   build(): CasebookView {
     return {
+      leads: this.buildLeads(),
       clues: this.buildClues(),
       statements: this.buildStatements(),
       facts: this.buildFacts(),
@@ -140,6 +149,23 @@ export class Casebook {
    * "truth" n'existe pas sur ce type ; le dossier ne pourrait donc pas
    * juger meme s'il le voulait.
    */
+  /**
+   * Les noms a afficher sous « A verifier ».
+   *
+   * Le moteur decide QUI ; le dossier ne fait que chercher comment
+   * cette personne s'appelle. Une rubrique vide ne s'affiche pas : un
+   * carnet qui repeterait « rien a verifier » a chaque page dirait au
+   * joueur qu'il attend quelque chose de lui, ce qui est faux.
+   */
+  private buildLeads(): string[] {
+    const noms: string[] = [];
+    for (const id of this.dialogue.leads()) {
+      const sheet = this.dialogue.characterSheet(id);
+      noms.push(sheet?.name ?? id);
+    }
+    return noms;
+  }
+
   private buildStatements(): CasebookSection[] {
     const sections = new Grouping();
     /** Ou se trouve la declaration d'identifiant X, pour la prolonger. */

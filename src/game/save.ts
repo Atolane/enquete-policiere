@@ -127,6 +127,17 @@ export function parseSave(text: string, data: CaseData): ParseResult {
   state.knownFacts = keep(source, 'knownFacts', facts, 'fait', problems);
   state.askedTopics = keep(source, 'askedTopics', topics, 'question posee', problems);
   state.unlockedTopics = keep(source, 'unlockedTopics', topics, 'question ouverte', problems);
+  /* CHAMP AJOUTE APRES COUP, DONC FACULTATIF.
+     Toutes les sauvegardes ecrites avant lui sont en version 1, comme
+     celles d'aujourd'hui : monter STATE_VERSION les aurait toutes
+     effacees pour ajouter une commodite d'affichage, ce qui serait un
+     tres mauvais marche. Absent, le champ vaut donc la liste vide, en
+     silence -- ce n'est pas un defaut de la sauvegarde. Le joueur
+     reprend sa partie intacte ; la premiere liste de questions qu'il
+     ouvrira chez chacun sera simplement marquee « nouveau » une fois. */
+  state.seenTopics = source.seenTopics === undefined
+    ? []
+    : keep(source, 'seenTopics', topics, 'question vue', problems);
 
   /* Les elements presentes sont des cles composees « personnage|kind:id ».
      Les DEUX moities comptent : un personnage disparu invalide la cle

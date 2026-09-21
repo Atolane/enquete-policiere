@@ -168,8 +168,15 @@ export class DialogueUI {
     this.hint.textContent = '';
   }
 
-  /** Affiche la liste des questions disponibles. */
-  showChoices(topics: DialogueTopic[], canPresent = false): void {
+  /**
+   * Affiche la liste des questions disponibles.
+   *
+   * @param nouveaux les identifiants que le joueur n'avait encore
+   *   jamais vus proposes. Ils portent une marque -- rien de plus : la
+   *   marque dit « celle-la est apparue depuis la derniere fois », elle
+   *   ne dit pas qu'il faut la poser.
+   */
+  showChoices(topics: DialogueTopic[], canPresent = false, nouveaux: ReadonlySet<string> = new Set()): void {
     this.choices = topics;
     this.evidence = [];
     this.typing = null;
@@ -200,6 +207,14 @@ export class DialogueUI {
       category.textContent = topic.category;
 
       button.append(key, label, category);
+
+      if (nouveaux.has(topic.id)) {
+        button.classList.add('is-new');
+        const marque = document.createElement('span');
+        marque.className = 'choice-new';
+        marque.textContent = 'nouveau';
+        button.appendChild(marque);
+      }
       button.addEventListener('click', (event) => {
         event.stopPropagation();
         this.onChoose?.(topic);

@@ -168,6 +168,35 @@ body {
   opacity: 0;
 }
 
+/* LA LIGNE DES PISTES.
+   Placee AU-DESSUS du viseur, alors que le libelle d'action est
+   dessous : les deux ne peuvent donc jamais se recouvrir, meme si le
+   joueur vise quelque chose au moment ou une piste s'ouvre. Fond
+   discret, parce qu'elle doit rester lisible sur un mur clair comme
+   sur une caisse sombre, et qu'elle n'est pas un panneau -- elle
+   passe. */
+#lead-line {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -100%);
+  margin-top: -54px;
+  max-width: min(620px, calc(100vw - 48px));
+  padding: 9px 18px;
+  text-align: center;
+  font-size: 14px;
+  line-height: 1.45;
+  color: #f4e4c8;
+  background: rgba(11, 13, 17, 0.82);
+  border-left: 2px solid #f0c98a;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95);
+  transition: opacity 0.35s ease;
+}
+
+#lead-line.is-hidden {
+  opacity: 0;
+}
+
 /* Panneau d'information. Sobre pour l'instant : l'apparence "dossier de
    police 1948" sera travaillee avec le carnet, bien plus tard. */
 #info-panel {
