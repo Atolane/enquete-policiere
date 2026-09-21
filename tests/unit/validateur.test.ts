@@ -220,3 +220,102 @@ test('question masquee que rien ne debloque jamais', () => {
   );
   assert.equal(parmi(problemes, 'rien ne la debloque jamais').length, 1);
 });
+
+// --- topicsNotAsked : les deux controles de la Phase 8B --------------
+//
+// Une porte fermee par topicsNotAsked l'est definitivement. Deux
+// facons de rendre cette garantie fausse sans que rien ne se voie :
+// deverrouiller la question par un effet, ou fermer sur une liste.
+
+test('8B-1 : sujet garde, deverrouille par l effet d un autre sujet', () => {
+  const problemes = validateCase(
+    affaire({
+      topics: [
+        relance(),
+        question({ effects: { revealFacts: ['f1'], unlockTopics: ['accusation'] } }),
+        question({ id: 'accusation', requires: { topicsNotAsked: ['q1'] } }),
+      ],
+    }),
+  );
+  assert.equal(parmi(problemes, 'la garde ne servirait a rien').length, 1, problemes.join(' | '));
+  assert.equal(problemes.length, 1, 'aucun autre probleme ne doit apparaitre');
+});
+
+test('8B-2 : sujet garde, deverrouille par une reaction', () => {
+  const problemes = validateCase(
+    affaire({
+      topics: [
+        relance(),
+        question({ effects: { revealFacts: ['f1'] } }),
+        question({ id: 'accusation', requires: { topicsNotAsked: ['q1'] } }),
+      ],
+      reactions: [reaction({ effects: { unlockTopics: ['accusation'] } })],
+    }),
+  );
+  assert.equal(parmi(problemes, 'la garde ne servirait a rien').length, 1, problemes.join(' | '));
+  assert.equal(problemes.length, 1);
+});
+
+test('8B-3 : sujet garde, jamais deverrouille', () => {
+  const problemes = validateCase(
+    affaire({
+      topics: [
+        relance(),
+        question({ effects: { revealFacts: ['f1'] } }),
+        question({ id: 'accusation', requires: { topicsNotAsked: ['q1'] } }),
+      ],
+    }),
+  );
+  assert.deepEqual(problemes, []);
+});
+
+test('8B-4 : sujet deverrouille, sans garde', () => {
+  const problemes = validateCase(
+    affaire({
+      topics: [
+        relance(),
+        question({ effects: { revealFacts: ['f1'], unlockTopics: ['suite'] } }),
+        question({ id: 'suite' }),
+      ],
+    }),
+  );
+  assert.deepEqual(problemes, []);
+});
+
+test('8B-5 : topicsNotAsked a deux identifiants, sur une question', () => {
+  const problemes = validateCase(
+    affaire({
+      topics: [
+        relance(),
+        question({ effects: { revealFacts: ['f1'] } }),
+        question({ id: 'accusation', requires: { topicsNotAsked: ['q1', 'temoin_relance'] } }),
+      ],
+    }),
+  );
+  assert.equal(parmi(problemes, '2 identifiants dans topicsNotAsked').length, 1, problemes.join(' | '));
+  assert.equal(problemes.length, 1);
+});
+
+test('8B-6 : topicsNotAsked a un seul identifiant, sur une reaction', () => {
+  const problemes = validateCase(
+    affaire({ reactions: [reaction({ requires: { topicsNotAsked: ['q1'] } })] }),
+  );
+  assert.deepEqual(problemes, []);
+});
+
+test('8B-7 : topicsNotAsked a deux identifiants, sur une reaction', () => {
+  const problemes = validateCase(
+    affaire({
+      reactions: [reaction({ requires: { topicsNotAsked: ['q1', 'temoin_relance'] } })],
+    }),
+  );
+  assert.equal(parmi(problemes, '2 identifiants dans topicsNotAsked').length, 1, problemes.join(' | '));
+  assert.equal(problemes.length, 1);
+});
+
+test('8B-8 : le jeu de donnees complet ne declenche aucun des deux controles', () => {
+  const problemes = validateCase(affaire());
+  assert.equal(parmi(problemes, 'topicsNotAsked').length, 0);
+  assert.equal(parmi(problemes, 'la garde ne servirait a rien').length, 0);
+  assert.deepEqual(problemes, []);
+});

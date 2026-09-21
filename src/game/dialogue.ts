@@ -526,6 +526,26 @@ export function validateCase(data: CaseData): string[] {
     if (topic.hidden && !unlockable.has(topic.id)) {
       problems.push(`${topic.id} : masquee, mais rien ne la debloque jamais`);
     }
+
+    /* UNE GARDE QU'UN EFFET REND SANS VALEUR (Phase 8B).
+
+       isAvailable() commence par « if (isUnlocked(topic.id)) return
+       true » : une question ouverte par un effet passe outre TOUTES
+       ses conditions, topicsNotAsked comprise. C'est voulu -- le
+       personnage a lui-meme ouvert le sujet -- mais cela vide
+       silencieusement la garde de sa substance.
+
+       Le cas est invisible a la relecture : les deux moities sont
+       correctes chacune de son cote, et elles se trouvent dans deux
+       fichiers differents. Seul le croisement le revele. */
+    const garde = topic.requires?.topicsNotAsked ?? [];
+    if (garde.length > 0 && unlockable.has(topic.id)) {
+      problems.push(
+        `${topic.id} : gardee par topicsNotAsked (${garde.join(', ')}), et ` +
+          'pourtant deverrouillee par un effet. Une question deverrouillee ' +
+          'passe outre toutes ses conditions : la garde ne servirait a rien.',
+      );
+    }
   }
 
   /* Garde-fou contre l'impasse : chaque personnage doit conserver EN
@@ -624,6 +644,28 @@ function checkCondition(
       problems.push(`${where} : prerequis « pas encore posee » inconnu "${id}"`);
     }
   }
+
+  /* UNE PORTE SE FERME SUR UN SEUL GESTE (Phase 8B).
+
+     topicsNotAsked ferme DEFINITIVEMENT : askedTopics ne fait que
+     s'allonger, un sujet pose n'en est jamais retire. C'est
+     acceptable tant que le joueur voit venir ce qu'il fait -- il lit
+     la replique avant de la choisir, et une accusation frontale se
+     reconnait.
+
+     Avec plusieurs identifiants, cette lisibilite tombe : la porte se
+     referme sur n'importe lequel d'entre eux, y compris une question
+     parfaitement anodine glissee dans la liste. Le joueur perdrait
+     quelque chose sans avoir rien decide. */
+  const fermetures = need.topicsNotAsked ?? [];
+  if (fermetures.length > 1) {
+    problems.push(
+      `${where} : ${fermetures.length} identifiants dans topicsNotAsked ` +
+        `(${fermetures.join(', ')}). Un seul est admis : une porte se ferme ` +
+        'sur un geste unique et lisible, jamais sur une liste.',
+    );
+  }
+
   for (const id of need.statementsHeard ?? []) {
     if (!known.statements.has(id)) {
       problems.push(`${where} : declaration requise inconnue "${id}"`);
