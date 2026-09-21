@@ -5,7 +5,7 @@
    l'examiner, aller voir un temoin, lui poser une question, lui poser
    une piece sous le nez, ouvrir le carnet.
 
-   CE QUE LE PARCOURS TRAVERSE (Phase 9, tranches 1 a 7)
+   CE QUE LE PARCOURS TRAVERSE (Phase 9, tranches 1 a 8)
      1. le verre renverse, Nino Restivo, une question qui s'ouvre ;
      2. le registre des livraisons, Enzo Carbone, et la premiere
         version qu'un temoin doit reprendre ;
@@ -22,7 +22,10 @@
      7. quatre questions de plus chez Rosa et Aldo, chacune ouverte par
         ce qu'un autre temoin a dit ailleurs. Le parcours suit la plus
         longue chaine de l'affaire : le verre presente a Rosa lui ouvre
-        une question, dont la reponse en ouvre une chez Aldo.
+        une question, dont la reponse en ouvre une chez Aldo ;
+     8. le poele du couloir. Quatre personnes repondent devant lui et
+        deux seulement apportent un fait ; le constat de Doyle ouvre
+        une question chez Aldo, a l'autre bout de la piece.
 
    (Cette liste est restee bloquee a la tranche 2 jusqu'a la tranche 7 :
    un remplacement de texte qui ne trouvait pas son ancre, et qui ne
@@ -40,7 +43,11 @@
      - la grande caisse occupe x de 2,8 a 4,2 : on s'arrete devant sa
        face ouest, vers x = 2,3, et le registre reste a portee ;
      - le local arriere n'a qu'une ouverture, de z = 1,1 a z = 2,1, sur
-       sa facade a x = -4,2.
+       sa facade a x = -4,2 ;
+     - le renfoncement du poele ne se prend pas en ligne droite : entre
+       la cloison du local et le cylindre de collision de Nino il reste
+       vingt centimetres. On contourne Nino par l'est, puis on revient
+       vers l'ouest sous lui.
    « allerVers » renvoie s'il est arrive. Un trajet qui echoue est un
    echec annonce, et non un controle suivant qui trouve un ecran vide
    sans savoir pourquoi.
@@ -69,6 +76,7 @@ const LIVRES = { x: 3.5, y: 1.41, z: -2.0 };
 const BOUTEILLE = { x: -5.0, y: 0.13, z: 4.15 };
 const DOYLE = { x: 1.8, y: 1.35, z: 4.9 };
 const ETAGERE = { x: -5.4, y: 1.29, z: 1.6 };
+const POELE = { x: -4.91, y: 0.5, z: -0.9 };
 
 let ok = 0;
 let ko = 0;
@@ -415,12 +423,46 @@ check(
 await page.mouse.click(500, 280);
 await page.waitForTimeout(300);
 
+// --- 1 ter bis. Le poele du couloir ------------------------------------
+
+/* Il est a deux pas du local, et pourtant on n'y va pas tout droit :
+   Nino bouche le passage direct. On le contourne par l'est. */
+await trajet('jusqu au poele', [
+  { x: -3.4, z: 1.6, arret: 0.5 },
+  { x: -2.2, z: 0.9, arret: 0.6 },
+  { x: -2.2, z: -1.1, arret: 0.6 },
+  { x: -4.0, z: -1.1, arret: 0.6 },
+]);
+const inviteP = await viserJusqua(POELE, /Examiner le poêle/);
+check('le viseur annonce le poele', /Examiner le poêle/.test(inviteP), `"${inviteP}"`);
+await page.mouse.click(500, 280);
+await page.waitForTimeout(400);
+const ficheP = await fiche();
+check('la fiche du poele s ouvre', ficheP.ouverte && /poêle du couloir/i.test(ficheP.titre), ficheP.titre);
+check('elle montre des cendres et un angle regle', /cendres/.test(ficheP.texte) && /papier réglé/.test(ficheP.texte), ficheP.texte.slice(0, 70));
+check(
+  'elle ne dit pas ce qui etait ecrit',
+  !/relevé|document|compte|facture/i.test(ficheP.texte),
+  ficheP.texte.slice(0, 90),
+);
+check(
+  'ni qui a craque l allumette',
+  !/Rosa|Enzo|Aldo|Nino|Victor/.test(ficheP.texte),
+  ficheP.texte.slice(0, 90),
+);
+await page.mouse.click(500, 280);
+await page.waitForTimeout(300);
+
 // --- 1 quater. Retour chez Doyle : le blocage, puis le deblocage ------
 
+/* En revenant du poele on est au NORD du passage etroit, dont
+   l'unique ouverture est centree sur x = 0 : on y repasse, sinon on
+   longe la cloison jusqu'a expiration du chronometre. */
 await trajet('retour chez Doyle', [
-  { x: -3.6, z: 1.6 },
-  { x: -2.6, z: 4.4 },
-  { x: 0, z: 4.4 },
+  { x: -2.2, z: -1.0, arret: 0.6 },
+  { x: -2.2, z: 0.9, arret: 0.6 },
+  { x: 0, z: 0.9, arret: 0.5 },
+  { x: 0, z: 4.0, arret: 0.6 },
   { ...DOYLE, arret: 1.7 },
 ]);
 const inviteD = await viserJusqua(DOYLE, /Interroger Agent Doyle/);
@@ -731,6 +773,16 @@ check('il repond sur la glace', await lire());
 /* Le poele, tant qu'on est chez lui : c'est Nino qui le vide, et lui
    seul peut dire qu'il etait plein le samedi matin. Sans cette
    reponse, on ne pourra pas en parler a Rosa tout a l'heure. */
+/* LE POELE PRESENTE A NINO. C'est lui qui le remplit : il est le seul
+   a pouvoir dire ce qu'il y avait dedans pour bruler. */
+await page.click('#dialogue-present');
+await page.waitForTimeout(400);
+await cliquerChoix('.dialogue-choice[data-evidence="clue:poele_cendres"]');
+await page.waitForTimeout(400);
+const ninoCharbon = await lireEnNotant();
+check('il parle du charbon', /charbon/i.test(ninoCharbon), ninoCharbon.slice(0, 120));
+check('il ne dit toujours pas ce qui a brule', !/papier|brûl/i.test(ninoCharbon), ninoCharbon.slice(0, 120));
+
 await cliquerChoix('.dialogue-choice[data-topic="nino_poele"]');
 await page.waitForTimeout(350);
 check('il repond sur le poele', await lire());
@@ -860,6 +912,16 @@ check(
   apresEtagere.length === avantEtagere.length,
   `avant ${avantEtagere.length}, apres ${apresEtagere.length}`,
 );
+
+/* Il est passe devant le poele en ouvrant. Il dit ce qu'il a fait,
+   pas ce qu'il a compris. */
+await page.click('#dialogue-present');
+await page.waitForTimeout(400);
+await cliquerChoix('.dialogue-choice[data-evidence="clue:poele_cendres"]');
+await page.waitForTimeout(400);
+const enzoPoele = await lireEnNotant();
+check('il dit ne pas avoir regarde', /pas regardé/i.test(enzoPoele), enzoPoele.slice(0, 120));
+check('et ce qu il a fait a la place', /café/i.test(enzoPoele));
 
 // --- 5. Rosa Vitale ----------------------------------------------------
 
@@ -1025,6 +1087,16 @@ await cliquerChoix('.dialogue-choice[data-evidence="statement:doyle_resultat_pre
 await page.waitForTimeout(400);
 check('elle repond au chimiste', await lire());
 
+/* LE POELE PRESENTE A ROSA. Elle renvoie sur le charbon et sur le
+   petit. Ce n'est pas un mensonge, et ce n'est pas une reponse. */
+await page.click('#dialogue-present');
+await page.waitForTimeout(400);
+await cliquerChoix('.dialogue-choice[data-evidence="clue:poele_cendres"]');
+await page.waitForTimeout(400);
+const rosaFoyer = await lireEnNotant();
+check('elle renvoie sur le charbon', /charbon/i.test(rosaFoyer), rosaFoyer.slice(0, 120));
+check('elle ne nomme ni le poele ni les cendres', !/poêle|cendres/i.test(rosaFoyer), rosaFoyer.slice(0, 120));
+
 const rosaBulletin = await choix();
 check(
   'le bulletin ne lui ouvre aucune question non plus',
@@ -1072,6 +1144,11 @@ check(
 check(
   'celle du remboursement, non : il n a pas encore parle des avances',
   !aldoAvant.some((o) => o.topic === 'aldo_remboursement'),
+  JSON.stringify(aldoAvant.map((o) => o.texte)),
+);
+check(
+  'celle du papier reglé, non plus : personne ne l a encore consigné',
+  !aldoAvant.some((o) => o.topic === 'aldo_papier'),
   JSON.stringify(aldoAvant.map((o) => o.texte)),
 );
 
@@ -1160,6 +1237,89 @@ check(
   `avant ${avantBulletin}`,
 );
 
+// --- 6 bis. Le poele consigne, et la piste qui s ouvre chez Aldo -------
+
+/* LA BOUCLE COMPLETE, en trois lieux : un objet qu'on a regarde dans
+   le couloir, un agent qui le consigne pres de la porte, une question
+   qui s'ouvre chez un homme assis contre le mur d'en face. Aldo a ete
+   rencontre : le jeu a donc quelque chose a dire. */
+await page.keyboard.press('Escape');
+await page.waitForTimeout(400);
+check('le joueur reprend la main en quittant Aldo', await reprendreLaMain());
+
+/* LE MUR EST : la rampe et son palier occupent z de 2,7 a 4,5 sur
+   toute la largeur x de 1,8 a 5,9, et le passage etroit occupe z de
+   1,2 a 1,8 jusqu'a x = 3,0. Entre les deux il reste vingt
+   centimetres : on ne passe pas. On remonte donc au nord du passage,
+   et on redescend par son ouverture, a x = 0. */
+await trajet('de Aldo a Doyle', [
+  { x: 3.6, z: 1.8, arret: 0.6 },
+  { x: 3.6, z: 0.8, arret: 0.6 },
+  { x: 0, z: 0.8, arret: 0.5 },
+  { x: 0, z: 4.0, arret: 0.6 },
+  { ...DOYLE, arret: 1.7 },
+]);
+await viserJusqua(DOYLE, /Interroger Agent Doyle/);
+await page.mouse.click(500, 280);
+const doyleFin = await attendreEntretien('Agent Doyle');
+check('l entretien se rouvre une derniere fois', doyleFin.ouvert && doyleFin.nom.includes('Agent Doyle'), doyleFin.nom);
+
+await page.click('#dialogue-present');
+await page.waitForTimeout(400);
+await cliquerChoix('.dialogue-choice[data-evidence="clue:poele_cendres"]');
+await page.waitForTimeout(400);
+const doyleConsigne = await lireEnNotant();
+check('il dit ce qu il a vu en entrant', /entrouverte/i.test(doyleConsigne), doyleConsigne.slice(0, 120));
+check('il consigne le papier reglé', /papier réglé/i.test(doyleConsigne));
+check('et il ne conclut rien', !/coupable|prouve|forcément|donc/i.test(doyleConsigne), doyleConsigne.slice(0, 140));
+
+const pisteAldo = await piste();
+check('la ligne des pistes signale Aldo', pisteAldo.visible, JSON.stringify(pisteAldo.texte));
+check(
+  'elle nomme Aldo Maglione',
+  /Une nouvelle piste mérite d’être approfondie auprès de Aldo Maglione\./.test(pisteAldo.texte),
+  pisteAldo.texte,
+);
+check('elle ne dit pas de quoi il s agit', !/papier|poêle|cendres/i.test(pisteAldo.texte), pisteAldo.texte);
+
+await page.keyboard.press('Escape');
+await page.waitForTimeout(400);
+check('le joueur reprend la main', await reprendreLaMain());
+await page.keyboard.press('KeyN');
+await page.waitForTimeout(500);
+const rappelAldo = await page.evaluate(() =>
+  [...document.querySelectorAll('.notebook-lead')].map((e) => e.textContent ?? ''),
+);
+check('le carnet le retient', rappelAldo.some((n) => n.includes('Aldo Maglione')), JSON.stringify(rappelAldo));
+await page.keyboard.press('KeyN');
+await page.waitForTimeout(400);
+check('le carnet se referme', await reprendreLaMain());
+
+await trajet('retour chez Aldo', [
+  { x: 0, z: 3.4, arret: 0.6 },
+  { x: 0, z: 0.8, arret: 0.5 },
+  { x: 3.6, z: 0.8, arret: 0.6 },
+  { x: 4.7, z: 1.6, arret: 0.6 },
+  { ...ALDO, arret: 1.7 },
+]);
+await viserJusqua(ALDO, /Interroger Aldo Maglione/);
+await page.mouse.click(500, 280);
+const aldoFin = await attendreEntretien('Aldo Maglione');
+check('on le retrouve', aldoFin.ouvert && aldoFin.nom.includes('Aldo Maglione'), aldoFin.nom);
+
+const aldoDernier = await choix();
+check(
+  'la question du papier reglé est la, et marquee « nouveau »',
+  aldoDernier.find((o) => o.topic === 'aldo_papier')?.nouveau === true,
+  JSON.stringify(aldoDernier.map((o) => `${o.topic}:${o.nouveau}`)),
+);
+await cliquerChoix('.dialogue-choice[data-topic="aldo_papier"]');
+await page.waitForTimeout(350);
+const aldoReponse = await lireEnNotant();
+check('il renvoie sur les papeteries de la ville', /papeteries/i.test(aldoReponse), aldoReponse.slice(0, 120));
+check('et affirme ses livres complets', /complets/i.test(aldoReponse));
+check('rien ne le designe pour autant', !/coupable|menteur|contradiction/i.test(aldoReponse));
+
 // --- 7. Le carnet ------------------------------------------------------
 
 await page.keyboard.press('Escape');
@@ -1198,9 +1358,14 @@ check('le carnet ne juge pas non plus ce qu elle dit', !/douteux|suspect|invrais
 check('Aldo a sa propre section', /Aldo Maglione/.test(carnet.texte));
 check('ses jours de livraison y figurent', /mardi/.test(carnet.texte) && /vendredi/.test(carnet.texte));
 check('ceux d Enzo aussi, sans commentaire', /mercredi/.test(carnet.texte));
+/* « or, » etait cherche comme une simple sous-chaine : il attrapait
+   « Victor, ». Le defaut a dormi quatre tranches, jusqu'au jour ou un
+   temoin a nomme le mort suivi d'une virgule. Les mots entiers, donc
+   -- et « dement » avec son accent, faute de quoi il ne trouvait rien
+   dans un texte francais. */
 check(
   'le carnet ne rapproche jamais les deux',
-  !/contradi|incompatible|pourtant|or,|dement/i.test(carnet.texte),
+  !/contradi|incompatible|pourtant|\bor\b|dément/i.test(carnet.texte),
 );
 check('la glace qu il explique y figure', /fond la moitié/.test(carnet.texte));
 check('l agent Doyle a sa propre section', /Agent Doyle/.test(carnet.texte));
@@ -1214,6 +1379,13 @@ check(
 check(
   'aucune quantite n est apparue en chemin',
   !/milligramme|gramme|dose|taux|seuil/i.test(carnet.texte),
+);
+check('le couloir est une rubrique du carnet', /Le couloir/.test(carnet.texte));
+check('le poele y est range', /papier réglé/.test(carnet.texte));
+check('ce que Nino dit du charbon y est', /depuis octobre/.test(carnet.texte));
+check(
+  'le carnet ne dit jamais ce qui a brule',
+  !/relevé|document brûlé|les comptes ont brûlé/i.test(carnet.texte),
 );
 check('le local arriere est une rubrique du carnet', /Le local arrière/.test(carnet.texte));
 check('la trace de l etagere y est rangee', /disque plus clair/.test(carnet.texte));

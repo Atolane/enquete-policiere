@@ -216,6 +216,51 @@ export class TestRoomScene {
     this.addBox([1.6, 0.08, 0.9], [-4.5, 0.75, 3.5], this.materials.wood);
 
     this.buildBackRoom();
+    this.buildStove();
+  }
+
+  /**
+   * LE POELE DU COULOIR (Phase 9, tranche 8).
+   *
+   * Il existait dans les dialogues depuis la premiere tranche -- Nino
+   * le vide, Rosa n'y a rien allume -- sans exister nulle part. Le
+   * joueur tenait deux phrases et ne pouvait pas aller regarder.
+   *
+   * Il tient dans le renfoncement laisse libre entre la plateforme de
+   * l'escalier (qui s'arrete a z = -1,4) et la cloison nord du local
+   * arriere (qui commence a z = 0,4). Un coin d'un metre soixante-dix,
+   * a l'ecart des chemins : c'est exactement ce qu'est un couloir de
+   * service. Trois boites et un cylindre, aucun nouvel asset.
+   *
+   * ON N'Y ENTRE PAS EN LIGNE DROITE, et c'est bon a savoir avant de
+   * deplacer quoi que ce soit : entre la cloison du local et le
+   * cylindre de collision de Nino, il reste vingt centimetres. Le
+   * couloir se prend donc en contournant Nino par l'est, puis en
+   * revenant vers l'ouest sous lui. Un joueur le fait sans y penser ;
+   * un test doit l'ecrire.
+   */
+  private buildStove(): void {
+    const corps = this.addBox([0.55, 0.85, 0.5], [-5.2, 0.425, -0.9], this.materials.stone);
+    corps.castShadow = true;
+
+    /* Le tuyau monte vers le plafond : sans lui, la boite ne se lit
+       pas comme un poele. */
+    const tuyau = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.06, 0.06, 1.6, 12),
+      this.materials.stone,
+    );
+    tuyau.position.set(-5.2, 1.65, -0.9);
+    this.addSolid(tuyau);
+
+    /* La porte du foyer, restee entrouverte : c'est ELLE qu'on examine,
+       et non le bloc -- le rayon doit toucher une piece precise, pas
+       une masse d'un metre de large. */
+    const porte = new THREE.Mesh(
+      new THREE.BoxGeometry(0.05, 0.28, 0.32),
+      this.materials.object,
+    );
+    porte.position.set(-4.91, 0.5, -0.9);
+    this.makeExaminable(porte, { kind: 'clue', clueId: 'poele_cendres' });
   }
 
   /**

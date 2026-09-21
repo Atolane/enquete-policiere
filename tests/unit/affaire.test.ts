@@ -28,12 +28,12 @@ test('l affaire passe le validateur sans un seul probleme', () => {
 
 test('la tranche en cours a la taille annoncee', () => {
   assert.equal(dernierService.characters.length, 5);
-  assert.equal(dernierService.clues.length, 6);
-  assert.equal(dernierService.clueRubrics.length, 2);
-  assert.equal(dernierService.facts.length, 18);
-  assert.equal(dernierService.statements.length, 39);
-  assert.equal(dernierService.topics.length, 40);
-  assert.equal(dernierService.reactions.length, 20);
+  assert.equal(dernierService.clues.length, 7);
+  assert.equal(dernierService.clueRubrics.length, 3);
+  assert.equal(dernierService.facts.length, 20);
+  assert.equal(dernierService.statements.length, 44);
+  assert.equal(dernierService.topics.length, 41);
+  assert.equal(dernierService.reactions.length, 24);
 });
 
 test('la reprise d Enzo remplace bien sa premiere version', () => {
@@ -697,6 +697,126 @@ test('Rosa et Aldo n en disent pas plus qu ils ne peuvent savoir', () => {
   const fait = dernierService.facts.find((f) => f.id === 'fait_victor_restait_les_comptes')!;
   assert.match(fait.text, /les soirs où/i);
   assert.doesNotMatch(fait.text, /le 12|cette nuit|ce soir-là/i);
+});
+
+/* ===================================================================
+   LE POELE (tranche 8)
+
+   Le premier objet de l'affaire qui existait dans les dialogues sans
+   exister nulle part. Le danger, en lui donnant enfin un lieu, est de
+   lui faire dire ce qu'il ne peut pas savoir : ce qui etait ECRIT sur
+   la feuille, et QUI a craque l'allumette. Un angle de papier ne sait
+   ni l'un ni l'autre.
+   =================================================================== */
+
+test('le poele decrit ce qu on voit dedans, et s arrete la', () => {
+  const poele = dernierService.clues.find((c) => c.id === 'poele_cendres')!;
+  assert.equal(poele.rubric, 'couloir');
+
+  /* Ce qu'il montre : des cendres, et un angle regle. */
+  assert.match(poele.description, /cendres/i);
+  assert.match(poele.description, /papier réglé/i);
+
+  /* Ce qu'il ne montre pas : un contenu, un auteur, une heure. */
+  assert.doesNotMatch(poele.description, /relevé|document|compte|facture/i);
+  assert.doesNotMatch(poele.description, /cette nuit|le 12|vers |heures/i);
+  for (const sheet of dernierService.characters) {
+    assert.equal(
+      poele.description.includes(sheet.name.split(' ')[0]),
+      false,
+      `${sheet.name} n a rien a faire dans la description d un poele`,
+    );
+  }
+});
+
+test('les deux faits du poele ne comptent pas ce qu on n a pas', () => {
+  const papier = dernierService.facts.find((f) => f.id === 'fait_papier_regle')!;
+  const charbon = dernierService.facts.find((f) => f.id === 'fait_pas_de_charbon')!;
+
+  /* L'angle qui reste prouve UNE feuille. « Des feuilles » serait deja
+     un comptage sans piece. */
+  assert.match(papier.text, /au moins une feuille/i);
+  assert.doesNotMatch(papier.text, /relevé|document|comptes de/i);
+
+  /* Et aucun des deux ne conclut a la place du joueur : « donc le
+     papier a servi de combustible » n'est ecrit nulle part. */
+  for (const fait of [papier, charbon]) {
+    assert.doesNotMatch(fait.text, /donc|prouve|signifie|coupable/i);
+    for (const sheet of dernierService.characters) {
+      assert.equal(fait.text.includes(sheet.name.split(' ')[0]), false, `${sheet.name} : pas ici`);
+    }
+  }
+  assert.equal(papier.topic, 'Le couloir');
+  assert.equal(charbon.topic, 'Le couloir');
+});
+
+test('quatre personnes repondent au poele, et deux seulement apportent un fait', () => {
+  const devant = dernierService.reactions.filter((r) => r.clue === 'poele_cendres');
+  assert.deepEqual(
+    devant.map((r) => r.character).sort(),
+    ['doyle', 'enzo', 'nino', 'rosa'],
+  );
+
+  /* Doyle constate, Nino sait ce qu'il y avait pour bruler. Les deux
+     autres parlent sans rien apporter -- et c'est aussi un
+     renseignement, mais il appartient au joueur. */
+  const parPersonne = new Map(devant.map((r) => [r.character, r]));
+  assert.deepEqual(parPersonne.get('doyle')!.effects?.revealFacts, ['fait_papier_regle']);
+  assert.deepEqual(parPersonne.get('nino')!.effects?.revealFacts, ['fait_pas_de_charbon']);
+  assert.equal(parPersonne.get('rosa')!.effects, undefined);
+  assert.equal(parPersonne.get('enzo')!.effects, undefined);
+
+  /* Aucune des quatre ne change une humeur ni n'ouvre de question :
+     celle d'Aldo naitra du FAIT, pas de la reaction. */
+  for (const reaction of devant) {
+    assert.equal(reaction.effects?.setMood, undefined, `${reaction.character} : humeur figee`);
+    assert.equal(reaction.effects?.unlockTopics, undefined, `${reaction.character} : rien a ouvrir`);
+  }
+});
+
+test('le poele n ouvre une question qu apres avoir ete consigne', () => {
+  /* La chaine complete, en trois maillons : un objet qu'on regarde,
+     un agent qui le note, une question posable ailleurs. Le poele ne
+     parle a personne -- il fallait que Doyle le consigne pour qu'Aldo
+     ait quelque chose a nier. */
+  const question = dernierService.topics.find((t) => t.id === 'aldo_papier')!;
+  assert.deepEqual(question.requires?.facts, ['fait_papier_regle']);
+  assert.notEqual(question.category, 'pression');
+  assert.equal(question.effects, undefined, 'elle porte une phrase au carnet, et rien de plus');
+
+  const sources = dernierService.reactions.filter((r) =>
+    (r.effects?.revealFacts ?? []).includes('fait_papier_regle'),
+  );
+  const parQuestion = dernierService.topics.filter((t) =>
+    (t.effects?.revealFacts ?? []).includes('fait_papier_regle'),
+  );
+  assert.equal(parQuestion.length, 0, 'aucune parole ne suffit : il faut l objet');
+  assert.equal(sources.length, 1);
+  assert.equal(sources[0].character, 'doyle');
+  assert.equal(sources[0].clue, 'poele_cendres');
+});
+
+test('devant le poele, chacun reste dans ce qu il peut savoir', () => {
+  const dits = (character: string) => {
+    const reaction = dernierService.reactions.find(
+      (r) => r.clue === 'poele_cendres' && r.character === character,
+    )!;
+    return reaction.lines.filter((l) => l.speaker === character).map((l) => l.text).join(' ');
+  };
+
+  /* Nino remplit le poele : il parle du charbon. Il ne dit toujours
+     pas ce qui a brule -- il voit des cendres, et depuis la premiere
+     tranche c'est tout ce qu'il voit. */
+  assert.match(dits('nino'), /charbon/i);
+  assert.doesNotMatch(dits('nino'), /papier|brûl/i);
+
+  /* Doyle rapporte ce qu'il a vu en entrant, et ne conclut pas. */
+  assert.match(dits('doyle'), /papier réglé/i);
+  assert.doesNotMatch(dits('doyle'), /coupable|prouve|forcément/i);
+
+  /* Enzo etait la le matin : il dit ce qu'il a fait, pas ce qu'il a
+     compris. */
+  assert.match(dits('enzo'), /café/i);
 });
 
 test('les trois indices sont ranges sous un lieu', () => {

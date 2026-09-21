@@ -35,7 +35,7 @@ Ce répertoire corrige cela pour la partie qui peut l'être tout de suite.
 
 ### `unit/` — le socle
 
-Six suites, sans navigateur, sans serveur, sans dépendance. **159 tests, 0 échec.**
+Six suites, sans navigateur, sans serveur, sans dépendance. **164 tests, 0 échec.**
 
 | Fichier | Ce qu'il couvre |
 | --- | --- |
@@ -52,8 +52,8 @@ laquelle ils sont testables ainsi.
 ### `browser/` — une suite à jour, huit héritées
 
 `affaire.mjs` vise **l'affaire réelle** et a été écrite *et rejouée* au moment de son versement :
-**204 contrôles, 0 échec**, trois exécutions de suite. C'est le scénario de référence pour la
-Phase 9. Elle couvre les sept tranches et le guidage, en un seul parcours : l'agent Doyle à la porte ; le
+**239 contrôles, 0 échec**, trois exécutions de suite. C'est le scénario de référence pour la
+Phase 9. Elle couvre les huit tranches et le guidage, en un seul parcours : l'agent Doyle à la porte ; le
 verre renversé, la bouteille d'anisette et la trace sur l'étagère du local arrière ; le
 retour chez Doyle, où le prélèvement rapporté trop tôt **ne débloque rien** ; la bouteille,
 le résultat préliminaire, puis le prélèvement redonné et la contre-épreuve ; Nino Restivo ;

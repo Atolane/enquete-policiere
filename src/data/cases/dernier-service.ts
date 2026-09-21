@@ -24,6 +24,11 @@
      l'anisette -- et rien de ce qu'elle dit ici ne permet encore de
      l'inquieter. C'est exactement ce qu'on attend d'elle a ce stade.
 
+     Le poele du couloir, entre l'escalier et le local. Des cendres
+     froides, et un angle de papier qui n'a pas brule : des lignes
+     bleues, des colonnes. Il dit de quoi etait fait ce qui a brule. Il
+     ne dit pas ce qui y etait ecrit, ni qui a craque l'allumette.
+
      Le local arriere, ouvert par la police, et ce qu'on trouve sur
      son etagere haute : un rond de poussiere. Il dit qu'un recipient
      est reste la longtemps et qu'il n'y est plus. Il ne dit pas
@@ -155,6 +160,7 @@ export const dernierService: CaseData = {
   clueRubrics: [
     { id: 'bureau', label: 'Le bureau' },
     { id: 'local', label: 'Le local arrière' },
+    { id: 'couloir', label: 'Le couloir' },
   ],
 
   clues: [
@@ -210,6 +216,22 @@ export const dernierService: CaseData = {
         'un récipient est resté là longtemps, et il n’y est plus. Un peu de poudre grise ' +
         'tient encore dans le grain du bois.',
       rubric: 'local',
+    },
+    {
+      /* CE QU'UN POELE PEUT DIRE, ET OU IL S'ARRETE.
+         Il dit qu'on a fait du feu, et de quoi etait fait ce qui a
+         brule : du papier regle a colonnes. Il ne dit pas ce qui y
+         etait ecrit -- l'angle qui reste ne porte que des lignes --,
+         ni qui a craque l'allumette, ni a quelle heure. Trois choses
+         qu'il serait facile, et faux, de lui faire dire. */
+      id: 'poele_cendres',
+      name: 'Le poêle du couloir',
+      prompt: 'Examiner le poêle',
+      description:
+        'La porte du foyer est restée entrouverte. Dedans, des cendres froides et tassées. ' +
+        'Un angle de papier n’a pas brûlé : il porte les lignes bleues et les colonnes ' +
+        'd’un papier réglé.',
+      rubric: 'couloir',
     },
     {
       id: 'registre_livraisons',
@@ -354,6 +376,23 @@ export const dernierService: CaseData = {
       topic: 'Les comptes',
     },
     {
+      /* « AU MOINS UNE FEUILLE » : l'angle qui reste en prouve une, et
+         une seule. Ecrire « des feuilles » serait deja compter ce
+         qu'on n'a pas. */
+      id: 'fait_papier_regle',
+      text:
+        'Ce qui a brûlé dans le poêle comprenait au moins une feuille de papier réglé à colonnes.',
+      topic: 'Le couloir',
+    },
+    {
+      /* Nino remplit le poele : c'est le seul a pouvoir dire cela, et
+         c'est tout ce qu'il dit. « Donc le papier a servi de
+         combustible » est une phrase de joueur, pas de commis. */
+      id: 'fait_pas_de_charbon',
+      text: 'Il n’y avait plus de charbon dans le poêle depuis octobre.',
+      topic: 'Le couloir',
+    },
+    {
       id: 'fait_aldo_tient_les_comptes',
       text: 'Les comptes sont tenus par Aldo Maglione, le neveu du patron, depuis le printemps.',
       topic: 'Les comptes',
@@ -402,6 +441,13 @@ export const dernierService: CaseData = {
         'J’ai vu monsieur Carbone au fond, l’autre jour. Il a pris quelque chose sur ' +
         'l’étagère du haut. J’ai rien demandé, c’est pas mes affaires.',
       topic: 'Le local arrière',
+      truth: 'true',
+    },
+    {
+      id: 'nino_charbon',
+      speaker: 'nino',
+      text: 'J’ai plus remis de charbon depuis octobre. Y en a plus dans la réserve.',
+      topic: 'La maison',
       truth: 'true',
     },
     {
@@ -484,6 +530,13 @@ export const dernierService: CaseData = {
       truth: 'true',
     },
     {
+      id: 'rosa_charbon',
+      speaker: 'rosa',
+      text: 'C’est le petit qui s’en occupe. Moi je ne touche pas au charbon.',
+      topic: 'La maison',
+      truth: 'partial',
+    },
+    {
       id: 'rosa_anisette',
       speaker: 'rosa',
       text: 'Une anisette. Il en prenait une quand il restait tard. C’est moi qui la lui portais.',
@@ -537,6 +590,13 @@ export const dernierService: CaseData = {
       text: 'Il vérifiait mes écritures. C’est son métier, je n’en faisais pas une affaire.',
       topic: 'Les gens',
       truth: 'false',
+    },
+    {
+      id: 'aldo_papier',
+      speaker: 'aldo',
+      text: 'Du papier réglé, il y en a dans toutes les papeteries de la ville. Mes livres sont complets.',
+      topic: 'Les comptes',
+      truth: 'partial',
     },
     {
       id: 'aldo_ignorait',
@@ -616,6 +676,13 @@ export const dernierService: CaseData = {
     },
 
     {
+      id: 'doyle_poele',
+      speaker: 'doyle',
+      text: 'La porte du foyer était entrouverte. Un angle de papier réglé, pas brûlé. Je le fais relever.',
+      topic: 'Le 13 au matin',
+      truth: 'true',
+    },
+    {
       id: 'doyle_local',
       speaker: 'doyle',
       text: 'Le local du fond, je l’ai fait ouvrir ce matin. Le gérant avait la clé.',
@@ -671,6 +738,13 @@ export const dernierService: CaseData = {
       speaker: 'enzo',
       text: 'Il vérifiait les livres. C’était son travail, et il le faisait bien.',
       topic: 'Les gens',
+      truth: 'true',
+    },
+    {
+      id: 'enzo_pas_regarde',
+      speaker: 'enzo',
+      text: 'Je n’ai pas regardé le poêle. J’ai vu Victor, et j’ai couru au café d’en face.',
+      topic: 'Le 13 au matin',
       truth: 'true',
     },
     {
@@ -1194,6 +1268,24 @@ export const dernierService: CaseData = {
       records: ['aldo_ignorait'],
     },
     {
+      /* Ouverte par le constat de Doyle, a l'autre bout de la piece.
+         C'est la premiere question de l'affaire qui s'ouvre a partir
+         d'un OBJET vu ailleurs et non d'une parole : le poele ne parle
+         a personne, il fallait que Doyle le consigne pour qu'Aldo ait
+         quelque chose a nier. */
+      id: 'aldo_papier',
+      speaker: 'aldo',
+      question: 'On a brûlé du papier réglé cette nuit-là.',
+      category: 'les faits',
+      requires: { facts: ['fait_papier_regle'] },
+      lines: [
+        { speaker: 'detective', text: 'On a brûlé du papier réglé à colonnes, cette nuit-là.' },
+        { speaker: 'aldo', text: 'Du papier réglé, il y en a dans toutes les papeteries de la ville.' },
+        { speaker: 'aldo', text: 'Mes livres sont complets. Comptez les pages, si ça vous amuse.', beat: 'dismiss' },
+      ],
+      records: ['aldo_papier'],
+    },
+    {
       /* Elle ne s'ouvre qu'apres qu'il a parle des avances lui-meme.
          On ne demande pas a quelqu'un s'il a rembourse un pret dont il
          n'a pas encore reconnu l'existence. */
@@ -1372,6 +1464,61 @@ export const dernierService: CaseData = {
         { speaker: 'enzo', text: 'Compatibles. C’est votre mot.', pause: 0.6 },
         { speaker: 'enzo', text: 'Moi j’entends qu’ils n’en savent rien.', beat: 'dismiss' },
       ],
+    },
+    {
+      /* LE POELE CONSIGNE.
+         Doyle ne deduit rien et n'envoie rien au chimiste : il dit ce
+         qu'il a vu en entrant, et il le note. C'est de cette note, et
+         d'elle seule, que nait la question posable a Aldo. */
+      character: 'doyle',
+      clue: 'poele_cendres',
+      lines: [
+        { speaker: 'detective', text: 'Le poêle, dans le couloir. Il a servi.' },
+        { speaker: 'doyle', text: 'La porte était entrouverte quand je suis entré. Je n’y ai pas touché.' },
+        { speaker: 'doyle', text: 'Un angle de papier réglé, pas brûlé. Je le fais relever.', beat: 'think' },
+      ],
+      records: ['doyle_poele'],
+      effects: { revealFacts: ['fait_papier_regle'] },
+    },
+    {
+      /* LE CHARBON.
+         Nino remplit le poele : il est le seul a savoir ce qu'il y
+         avait dedans pour bruler. Il ne dit toujours pas ce qui a
+         brule -- il voit des cendres, comme depuis la premiere tranche
+         -- il dit ce qui n'y etait plus. */
+      character: 'nino',
+      clue: 'poele_cendres',
+      lines: [
+        { speaker: 'detective', text: 'Le poêle. Vous disiez l’avoir vidé.' },
+        { speaker: 'nino', text: 'Jeudi, oui. Et j’ai plus remis de charbon depuis octobre.' },
+        { speaker: 'nino', text: 'Y en a plus dans la réserve. Faut en commander.', beat: 'think' },
+      ],
+      records: ['nino_charbon'],
+      effects: { revealFacts: ['fait_pas_de_charbon'] },
+    },
+    {
+      /* Elle renvoie sur le charbon, et sur le petit. Ce n'est pas un
+         mensonge -- le poele est bien le travail de Nino -- et ce
+         n'est pas une reponse non plus. Aucun effet : son humeur ne
+         bouge pas, et rien ne s'ouvre. */
+      character: 'rosa',
+      clue: 'poele_cendres',
+      lines: [
+        { speaker: 'detective', text: 'Le foyer était resté ouvert.' },
+        { speaker: 'rosa', text: 'C’est le petit qui s’en occupe.', pause: 0.5 },
+        { speaker: 'rosa', text: 'Moi je ne touche pas au charbon, inspecteur.' },
+      ],
+      records: ['rosa_charbon'],
+    },
+    {
+      character: 'enzo',
+      clue: 'poele_cendres',
+      lines: [
+        { speaker: 'detective', text: 'Vous êtes passé devant, ce matin-là.' },
+        { speaker: 'enzo', text: 'Je n’ai pas regardé le poêle.', beat: 'deny', pause: 0.5 },
+        { speaker: 'enzo', text: 'J’ai vu Victor, et j’ai couru au café d’en face.' },
+      ],
+      records: ['enzo_pas_regarde'],
     },
     {
       /* LE GESTE QUI DECLENCHE L'ANALYSE.
