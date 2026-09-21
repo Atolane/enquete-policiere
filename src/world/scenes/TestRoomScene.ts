@@ -302,7 +302,7 @@ export class TestRoomScene {
     );
     ashtray.position.set(-4.5, 0.81, 3.5);
     // Rien d'autre que l'identifiant : les mots sont dans src/data/.
-    this.makeExaminable(ashtray, { kind: 'clue', clueId: 'ashtray' });
+    this.makeExaminable(ashtray, { kind: 'clue', clueId: 'verre_renverse' });
 
     // --- 2. Un document, pose sur la grande caisse ---
     const document = new THREE.Mesh(
@@ -311,7 +311,7 @@ export class TestRoomScene {
     );
     document.position.set(3.5, 1.41, -2.0);
     document.rotation.y = 0.3;
-    this.makeExaminable(document, { kind: 'clue', clueId: 'report' });
+    this.makeExaminable(document, { kind: 'clue', clueId: 'livres_comptes' });
 
     // --- 3. Un telephone, sur la plateforme en haut de l'escalier ---
     const phoneBase = new THREE.Mesh(
@@ -326,7 +326,7 @@ export class TestRoomScene {
     handset.rotation.z = Math.PI / 2;
     handset.position.set(0, 0.08, 0);
     phoneBase.add(handset); // l'ecouteur suit le socle
-    this.makeExaminable(phoneBase, { kind: 'clue', clueId: 'phone' });
+    this.makeExaminable(phoneBase, { kind: 'clue', clueId: 'combine_decroche' });
     // L'ecouteur est un enfant : on lui donne les memes donnees pour que
     // viser l'un ou l'autre revienne au meme.
     handset.userData.interactable = phoneBase.userData.interactable;
@@ -365,7 +365,17 @@ export class TestRoomScene {
 
     // L'objet devient observable : on pose les donnees sur chacun de ses
     // maillages, puisque c'est le maillage touche par le rayon qui compte.
-    const data: Interactable = { kind: 'clue', clueId: 'press_camera' };
+    /* L'appareil n'appartient pas a l'affaire : un photographe de presse
+       l'a laisse la. Il porte donc ses propres mots plutot qu'un
+       identifiant du catalogue -- tout n'est pas une preuve. */
+    const data: Interactable = {
+      kind: 'prop',
+      title: 'Un appareil de presse',
+      prompt: 'Examiner l\u2019appareil',
+      info:
+        'Un Speed Graphic sur trepied, plaque encore dans le dos. Un photographe '
+        + 'de presse est passe avant vous, et il est reparti sans son materiel.',
+    };
     root.traverse((node) => {
       if (node instanceof THREE.Mesh) node.userData.interactable = data;
     });
@@ -423,16 +433,16 @@ export class TestRoomScene {
         tint: spot.tint,
       });
 
-      /* Le premier mannequin porte le suspect de TEST (jetable, voir
-         src/data/demo/greco.ts). Les autres restent muets : ils ne
-         servent qu'aux mesures de performance. */
+      /* Le premier mannequin porte le premier temoin de l'affaire (voir
+         src/data/cases/dernier-service.ts). Les autres restent muets :
+         ils ne servent qu'aux mesures de performance. */
       const isSuspect = index === 0;
       const data: Interactable = isSuspect
         ? {
             kind: 'character',
-            characterId: 'greco', // identifiant DANS L'AFFAIRE
-            title: 'Salvatore Greco',
-            prompt: 'Interroger Salvatore Greco',
+            characterId: 'nino', // identifiant DANS L'AFFAIRE
+            title: 'Nino Restivo',
+            prompt: 'Interroger Nino Restivo',
           }
         : {
             /* Un mannequin de mesure n'appartient pas a l'affaire : il
@@ -451,7 +461,7 @@ export class TestRoomScene {
 
       this.scene.add(character.root);
       this.characters.push(character);
-      if (isSuspect) this.suspects.set('greco', character);
+      if (isSuspect) this.suspects.set('nino', character);
 
       // Un personnage occupe l'espace : boite de collision invisible,
       // etroite, autour de son axe. La geometrie du personnage lui-meme

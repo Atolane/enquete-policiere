@@ -40,7 +40,7 @@ import { GameState } from './game/GameState';
 import { DialogueEngine, validateCase, validateSceneClues } from './game/dialogue';
 import { Interrogation } from './game/Interrogation';
 import { SaveSlot } from './game/save';
-import { demoCase } from './data/demo/greco';
+import { dernierService } from './data/cases/dernier-service';
 import type { Character } from './world/Character';
 
 /**
@@ -155,13 +155,13 @@ export class Game {
        ce qui n'existe plus est ecarte et nomme en console, jamais en
        silence, et une sauvegarde abimee ne fait que ramener a une partie
        neuve -- elle n'empeche jamais de jouer. */
-    this.state = new GameState(this.save.read(demoCase) ?? undefined);
+    this.state = new GameState(this.save.read(dernierService) ?? undefined);
     this.notebook.setSaving(this.save.available);
 
     /* Enquete. Le validateur s'execute au demarrage : une faute de frappe
        dans les donnees est signalee tout de suite, pas en cours de partie. */
-    this.dialogue = new DialogueEngine(demoCase, this.state);
-    const problems = validateCase(demoCase);
+    this.dialogue = new DialogueEngine(dernierService, this.state);
+    const problems = validateCase(dernierService);
     if (problems.length > 0) {
       console.warn(`[enquete] ${problems.length} probleme(s) dans les donnees :`);
       for (const problem of problems) console.warn(`  - ${problem}`);
@@ -169,10 +169,10 @@ export class Game {
       console.info(
         '[enquete] donnees validees : ' +
           [
-            count(demoCase.topics.length, 'question'),
-            count(demoCase.statements.length, 'declaration'),
-            count(demoCase.clues.length, 'indice'),
-            count(demoCase.facts.length, 'fait'),
+            count(dernierService.topics.length, 'question'),
+            count(dernierService.statements.length, 'declaration'),
+            count(dernierService.clues.length, 'indice'),
+            count(dernierService.facts.length, 'fait'),
           ].join(', '),
       );
     }
@@ -239,7 +239,7 @@ export class Game {
        Ici et pas dans le constructeur : les modeles importes posent
        leurs propres objets observables, et l'appareil photo en est un.
        Avant ce chargement, il manquerait a l'appel. */
-    const sceneProblems = validateSceneClues(demoCase, this.room.clueIdsInScene());
+    const sceneProblems = validateSceneClues(dernierService, this.room.clueIdsInScene());
     if (sceneProblems.length > 0) {
       console.warn(`[enquete] ${sceneProblems.length} probleme(s) entre le decor et l'affaire :`);
       for (const problem of sceneProblems) console.warn(`  - ${problem}`);

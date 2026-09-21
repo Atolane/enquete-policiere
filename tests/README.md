@@ -35,7 +35,7 @@ Ce répertoire corrige cela pour la partie qui peut l'être tout de suite.
 
 ### `unit/` — le socle
 
-Quatre suites, sans navigateur, sans serveur, sans dépendance :
+Cinq suites, sans navigateur, sans serveur, sans dépendance :
 
 | Fichier | Ce qu'il couvre |
 | --- | --- |
@@ -43,19 +43,24 @@ Quatre suites, sans navigateur, sans serveur, sans dépendance :
 | `etat.test.ts` | `GameState` : pas de doublon, humeurs, abonnés prévenus une seule fois |
 | `carnet.test.ts` | `Casebook` : regroupement, changements de version, repli « Sans rubrique » |
 | `sauvegarde.test.ts` | `parseSave` : défauts de forme contre identifiants disparus |
+| `affaire.test.ts` | « Le dernier service » : le validateur, la taille de la tranche, et les mots qu'un témoin ne peut pas prononcer |
 
-Ces quatre modules n'importent ni Three.js ni le DOM, ce qui est précisément la raison pour
+Les modules testés n'importent ni Three.js ni le DOM, ce qui est précisément la raison pour
 laquelle ils sont testables ainsi.
 
-### `browser/` — hérité, et non rejoué
+### `browser/` — une suite à jour, huit héritées
 
-Huit suites qui pilotent le jeu dans un vrai navigateur. Elles couvrent ce qu'aucun test
+`affaire.mjs` vise **l'affaire réelle** et a été écrite *et rejouée* au moment de son versement :
+15 contrôles, 0 échec. C'est le scénario de référence pour la Phase 9.
+
+Les huit autres pilotent le jeu dans un vrai navigateur. Elles couvrent ce qu'aucun test
 unitaire ne peut atteindre : le clavier, le pointeur, le rendu, la persistance réelle.
 
-**Deux réserves, dites franchement.** Elles exigent Playwright, qui n'est pas une dépendance
-du projet. Et elles visent la pièce de test et le suspect jetable `greco` : elles devront
-être réécrites quand la vraie affaire arrivera. Elles sont versées ici parce qu'elles
-représentent un travail réel qui, sinon, serait perdu — pas parce qu'elles sont prêtes.
+**Deux réserves sur les huit héritées, dites franchement.** Elles exigent Playwright, qui
+n'est pas une dépendance du projet. Et elles visent encore le suspect jetable `greco`, qui
+n'est plus chargé par le jeu depuis la Phase 9 : **elles échoueront en l'état** et devront
+être réécrites. Elles restent versées parce qu'elles représentent un travail réel et des
+motifs réutilisables — pas parce qu'elles sont prêtes.
 
 Pour les lancer :
 
