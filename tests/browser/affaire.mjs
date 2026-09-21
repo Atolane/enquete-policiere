@@ -43,6 +43,8 @@ const NINO = { x: -3.2, y: 1.35, z: -0.2 };
 const ENZO = { x: 3.2, y: 1.35, z: -0.2 };
 const REGISTRE = { x: 3.5, y: 1.43, z: -2.45 };
 const ROSA = { x: 0, y: 1.35, z: -3.6 };
+const ALDO = { x: 4.8, y: 1.35, z: 2.2 };
+const LIVRES = { x: 3.5, y: 1.41, z: -2.0 };
 
 let ok = 0;
 let ko = 0;
@@ -325,13 +327,57 @@ await page.mouse.click(500, 280);
 await page.waitForTimeout(300);
 
 /* Deux objets sur la meme caisse : le viseur doit les distinguer. */
-const invite3b = await viserJusqua({ x: 3.5, y: 1.41, z: -2.0 }, /Examiner les livres/);
+const invite3b = await viserJusqua(LIVRES, /Examiner les livres/);
 check('les livres voisins restent un autre objet', /Examiner les livres/.test(invite3b), `"${invite3b}"`);
+await page.mouse.click(500, 280);
+await page.waitForTimeout(400);
+const fiche3 = await fiche();
+check('la fiche des livres s ouvre', fiche3.ouverte && /livres de comptes/i.test(fiche3.titre), fiche3.titre);
+check('le fournisseur y est nomme', /Adriatica/.test(fiche3.texte), fiche3.texte.slice(0, 60));
+await page.mouse.click(500, 280);
+await page.waitForTimeout(300);
+
+// --- 3 bis. Retour chez Nino : les livres sous ses yeux ---------------
+
+/* C'est lui qui rentre la glace. Montrer les livres a n'importe qui
+   d'autre ne donnerait rien -- et c'est de cette reaction-la, et
+   d'aucune autre, que depend la question posable a Aldo tout a
+   l'heure. On refait donc le chemin en sens inverse : un entretien
+   deja quitte doit pouvoir etre rouvert. */
+await trajet('retour chez Nino', [
+  { x: 1.6, z: -0.8, arret: 0.6 },
+  { x: -1.4, z: -0.6, arret: 0.6 },
+  { ...NINO, arret: 1.8 },
+]);
+const invite3c = await viserJusqua(NINO, /Interroger Nino Restivo/);
+check('le viseur le retrouve', /Interroger Nino Restivo/.test(invite3c), `"${invite3c}"`);
+await page.mouse.click(500, 280);
+const retour = await attendreEntretien('Nino Restivo');
+check('l entretien se rouvre sur Nino Restivo', retour.ouvert && retour.nom.includes('Nino Restivo'), retour.nom);
+
+await page.click('#dialogue-present');
+await page.waitForTimeout(400);
+const piecesNino = await page.evaluate(() =>
+  [...document.querySelectorAll('.dialogue-choice')].map((e) => e.dataset.evidence ?? ''),
+);
+check(
+  'les livres figurent parmi les pieces presentables',
+  piecesNino.includes('clue:livres_comptes'),
+  JSON.stringify(piecesNino),
+);
+await page.click('.dialogue-choice[data-evidence="clue:livres_comptes"]');
+await page.waitForTimeout(400);
+check('il repond sur la glace', await lire());
+
+await page.keyboard.press('Escape');
+await page.waitForTimeout(400);
+check('le joueur reprend la main en quittant Nino', await reprendreLaMain());
 
 // --- 4. Enzo, et la version qu il doit reprendre ------------------------
 
 await trajet('jusqu a Enzo', [
-  { x: 4.4, z: -0.4, arret: 0.6 },
+  { x: -1.0, z: -0.6, arret: 0.6 },
+  { x: 1.6, z: -0.8, arret: 0.6 },
   { ...ENZO, arret: 1.7 },
 ]);
 const invite4 = await viserJusqua(ENZO, /Interroger Enzo Carbone/);
@@ -448,7 +494,85 @@ check(
   `avant ${rosaApres.length}, apres ${rosaFin.length}`,
 );
 
-// --- 6. Le carnet ------------------------------------------------------
+// --- 6. Aldo Maglione --------------------------------------------------
+
+await page.keyboard.press('Escape');
+await page.waitForTimeout(400);
+check('le joueur reprend la main en quittant Rosa', await reprendreLaMain());
+
+/* Il se tient contre le mur est, en avant de la rampe. On repasse au
+   nord des blocs du passage etroit avant de redescendre. */
+await trajet('jusqu a Aldo', [
+  { x: 2.0, z: -0.6, arret: 0.6 },
+  { x: 3.9, z: 0.6, arret: 0.6 },
+  { x: 4.7, z: 1.5, arret: 0.6 },
+  { ...ALDO, arret: 1.7 },
+]);
+const invite6 = await viserJusqua(ALDO, /Interroger Aldo Maglione/);
+check('le viseur annonce Aldo Maglione', /Interroger Aldo Maglione/.test(invite6), `"${invite6}"`);
+await page.mouse.click(500, 280);
+const enteteAldo = await attendreEntretien('Aldo Maglione');
+check('l entretien s ouvre sur Aldo Maglione', enteteAldo.ouvert && enteteAldo.nom.includes('Aldo Maglione'), enteteAldo.nom);
+check('sa qualite est affichee', /écritures/i.test(enteteAldo.role), enteteAldo.role);
+
+const aldoAvant = await choix();
+check(
+  'la question sur Adriatica n est pas encore la',
+  !aldoAvant.some((o) => o.topic === 'aldo_adriatica'),
+  JSON.stringify(aldoAvant.map((o) => o.texte)),
+);
+check(
+  'la question sur la glace est la, parce que Nino a parle',
+  aldoAvant.some((o) => o.topic === 'aldo_glace'),
+  JSON.stringify(aldoAvant.map((o) => o.texte)),
+);
+
+await page.click('.dialogue-choice[data-topic="aldo_ecritures"]');
+await page.waitForTimeout(350);
+check('il repond sur les ecritures', await lire());
+
+const aldoApres = await choix();
+check(
+  'se dire comptable ouvre la question sur le fournisseur',
+  aldoApres.some((o) => o.topic === 'aldo_adriatica'),
+  JSON.stringify(aldoApres.map((o) => o.texte)),
+);
+
+await page.click('.dialogue-choice[data-topic="aldo_adriatica"]');
+await page.waitForTimeout(350);
+check('il donne ses jours de livraison', await lire());
+
+/* LA DECLARATION D'ENZO SOUS SON NEZ.
+   Deux temoins, deux jours differents. Le jeu ne dit rien, ne
+   deverrouille rien, ne change aucune humeur : il pose la seconde
+   phrase a cote de la premiere dans le carnet, et s'arrete la. */
+const avantFace = await choix();
+await page.click('#dialogue-present');
+await page.waitForTimeout(400);
+const piecesAldo = await page.evaluate(() =>
+  [...document.querySelectorAll('.dialogue-choice')].map((e) => e.dataset.evidence ?? ''),
+);
+check(
+  'la declaration d Enzo lui est presentable',
+  piecesAldo.includes('statement:enzo_livraison_reprise'),
+  JSON.stringify(piecesAldo),
+);
+await page.click('.dialogue-choice[data-evidence="statement:enzo_livraison_reprise"]');
+await page.waitForTimeout(400);
+check('il repond sur le jour de livraison', await lire());
+
+const apresFace = await choix();
+check(
+  'la contradiction n ouvre aucune question : elle est au joueur',
+  apresFace.length === avantFace.length,
+  `avant ${avantFace.length}, apres ${apresFace.length}`,
+);
+
+await page.click('.dialogue-choice[data-topic="aldo_glace"]');
+await page.waitForTimeout(350);
+check('il explique la glace', await lire());
+
+// --- 7. Le carnet ------------------------------------------------------
 
 await page.keyboard.press('Escape');
 await page.waitForTimeout(400);
@@ -472,7 +596,15 @@ check('Rosa a sa propre section', /Rosa Vitale/.test(carnet.texte));
 check('ce qu elle dit du verre y figure', /anisette/i.test(carnet.texte));
 check('l heure qu elle donne y figure', /onze heures/.test(carnet.texte));
 check('le carnet ne juge pas non plus ce qu elle dit', !/douteux|suspect|invraisemblable/i.test(carnet.texte));
-check('aucun identifiant technique a l ecran', !/nino_|enzo_|rosa_|fait_|registre_livraisons/.test(carnet.texte));
+check('Aldo a sa propre section', /Aldo Maglione/.test(carnet.texte));
+check('ses jours de livraison y figurent', /mardi/.test(carnet.texte) && /vendredi/.test(carnet.texte));
+check('ceux d Enzo aussi, sans commentaire', /mercredi/.test(carnet.texte));
+check(
+  'le carnet ne rapproche jamais les deux',
+  !/contradi|incompatible|pourtant|or,|dement/i.test(carnet.texte),
+);
+check('la glace qu il explique y figure', /fond la moitié/.test(carnet.texte));
+check('aucun identifiant technique a l ecran', !/nino_|enzo_|rosa_|aldo_|fait_|registre_livraisons/.test(carnet.texte));
 
 check('aucune erreur de console', erreurs.length === 0, erreurs.join(' | '));
 

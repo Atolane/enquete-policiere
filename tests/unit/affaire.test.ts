@@ -27,12 +27,12 @@ test('l affaire passe le validateur sans un seul probleme', () => {
 });
 
 test('la tranche en cours a la taille annoncee', () => {
-  assert.equal(dernierService.characters.length, 3);
+  assert.equal(dernierService.characters.length, 4);
   assert.equal(dernierService.clues.length, 4);
   assert.equal(dernierService.facts.length, 11);
-  assert.equal(dernierService.statements.length, 19);
-  assert.equal(dernierService.topics.length, 22);
-  assert.equal(dernierService.reactions.length, 8);
+  assert.equal(dernierService.statements.length, 27);
+  assert.equal(dernierService.topics.length, 29);
+  assert.equal(dernierService.reactions.length, 11);
 });
 
 test('la reprise d Enzo remplace bien sa premiere version', () => {
@@ -196,6 +196,105 @@ test('le premier entretien de Rosa ne la designe jamais', () => {
      se degrade au premier entretien serait un aveu de mise en scene. */
   for (const topic of siennes) {
     assert.equal(topic.effects?.setMood, undefined, `${topic.id} : son humeur ne doit pas bouger`);
+  }
+});
+
+/* CE QU'ALDO NE PEUT PAS DIRE A SON PREMIER ENTRETIEN.
+   Il tient les ecritures, il paie les factures, il a recu des avances
+   de son oncle : tout cela, il le dit, et c'est ce qui le rend
+   credible. Ce qu'il ne dit pas, c'est le mot qui transformerait ces
+   trois choses en une seule. Un temoin qui prononce lui-meme le mot
+   qui l'accuse n'est plus un temoin, c'est un aveu qui marche. */
+const interditsAldo: ReadonlyArray<[string, string]> = [
+  ['detournement', 'le mot qui resume tout ne peut pas venir de lui'],
+  ['detourne', 'le mot qui resume tout ne peut pas venir de lui'],
+  ['fausse facture', 'il enonce la regle, il ne decrit pas comment il la contourne'],
+  ['fictive', 'il enonce la regle, il ne decrit pas comment il la contourne'],
+  ['coupable', 'personne ne se designe au premier entretien'],
+  ['innocent', 'se defendre d un soupcon que nul n a formule, c est l avouer'],
+  ['dette', 'ses dettes sont le mobile : elles se decouvrent, elles ne s annoncent pas'],
+  ['cave', 'la cave n existe pas encore dans l enquete'],
+  ['arsenic', 'aucun temoin ne nomme un produit a ce stade'],
+  ['poison', 'aucun temoin ne nomme un produit a ce stade'],
+];
+
+for (const [mot, raison] of interditsAldo) {
+  test(`Aldo ne dit jamais « ${mot} » : ${raison}`, () => {
+    assert.equal(paroles('aldo').includes(mot), false);
+  });
+}
+
+test('Aldo n est pas coupable a la lecture de son premier entretien', () => {
+  const siennes = dernierService.topics.filter((t) => t.speaker === 'aldo');
+  assert.equal(siennes.length > 0, true);
+
+  /* Ni pression, ni humeur qui se degrade : les deux signaux dont le
+     joueur se sert pour sentir qu'il touche quelque chose. Aldo n'en
+     emet aucun. Ce qu'il laisse, ce sont deux phrases a rapprocher. */
+  for (const topic of siennes) {
+    assert.notEqual(topic.category, 'pression', `${topic.id} : trop tot pour presser Aldo`);
+    assert.equal(topic.effects?.setMood, undefined, `${topic.id} : son humeur ne doit pas bouger`);
+  }
+  for (const reaction of dernierService.reactions.filter((r) => r.character === 'aldo')) {
+    assert.equal(reaction.effects?.setMood, undefined, 'aucune de ses reactions ne change son humeur');
+  }
+});
+
+test('la contradiction sur le jour de livraison existe, et personne ne la nomme', () => {
+  /* Enzo dit mercredi, Aldo dit mardi et vendredi. Les deux phrases
+     sont dans le jeu, et rien dans le jeu ne les rapproche : c'est au
+     joueur de le faire. */
+  const enzo = dernierService.statements.find((s) => s.id === 'enzo_livraison_reprise');
+  const aldo = dernierService.statements.find((s) => s.id === 'aldo_adriatica');
+  assert.equal(/mercredi/.test(enzo?.text ?? ''), true);
+  assert.equal(/mardi/.test(aldo?.text ?? ''), true);
+  assert.equal(/vendredi/.test(aldo?.text ?? ''), true);
+  assert.equal(/mercredi/.test(aldo?.text ?? ''), false, 'il ne reprend pas le jour d Enzo');
+
+  /* La declaration d'Enzo est presentable a Aldo, et sa reaction ne
+     produit AUCUN effet : pas de fait revele, pas de question ouverte,
+     pas d humeur changee. Le seul resultat est une phrase de plus au
+     carnet. */
+  const face = dernierService.reactions.find(
+    (r) => r.character === 'aldo' && r.statement === 'enzo_livraison_reprise',
+  );
+  assert.notEqual(face, undefined, 'la declaration d Enzo doit lui etre presentable');
+  assert.equal(face?.effects, undefined, 'le jeu ne tire aucune conclusion a la place du joueur');
+});
+
+test('la question sur la glace exige le detour par Nino', () => {
+  /* Elle n'est pas « masquee » : elle est CONDITIONNEE. La nuance
+     compte -- une question masquee attend qu'on la deverrouille, une
+     question conditionnee attend que le joueur sache quelque chose. */
+  const glace = dernierService.topics.find((t) => t.id === 'aldo_glace');
+  assert.equal(glace?.hidden, undefined);
+  assert.deepEqual(glace?.requires?.facts, ['fait_glace_impossible']);
+
+  /* Et ce fait ne s'obtient qu'en montrant les livres a Nino, qui est
+     celui qui rentre la glace. */
+  const source = dernierService.reactions.filter((r) =>
+    (r.effects?.revealFacts ?? []).includes('fait_glace_impossible'),
+  );
+  assert.equal(source.length, 1);
+  assert.equal(source[0].character, 'nino');
+  assert.equal(source[0].clue, 'livres_comptes');
+});
+
+test('un fait acquis nomme les temoins en entier', () => {
+  /* Le carnet est un document, pas une conversation : « Rosa » y
+     devient « Rosa Vitale ». Dans la bouche de Nino, en revanche,
+     « Rosa » reste « Rosa » -- un commis de dix-neuf ans ne donne pas
+     le nom de famille de sa chef de salle. */
+  for (const fact of dernierService.facts) {
+    for (const sheet of dernierService.characters) {
+      const prenom = sheet.name.split(' ')[0];
+      if (!fact.text.includes(prenom)) continue;
+      assert.equal(
+        fact.text.includes(sheet.name),
+        true,
+        `fait ${fact.id} : « ${prenom} » sans son nom de famille`,
+      );
+    }
   }
 });
 

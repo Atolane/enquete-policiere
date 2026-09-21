@@ -24,6 +24,14 @@
      l'anisette -- et rien de ce qu'elle dit ici ne permet encore de
      l'inquieter. C'est exactement ce qu'on attend d'elle a ce stade.
 
+     Aldo Maglione, neveu du patron, qui tient les ecritures. Le seul
+     des quatre qui n'etait pas la cette nuit-la, et il le dit tout de
+     suite. Il explique volontiers, il donne des chiffres, il enonce
+     lui-meme les regles qu'il suit. Un joueur attentif repartira avec
+     deux phrases qui ne s'accordent pas -- celle d'Enzo sur le jour de
+     livraison et la sienne -- sans que rien ni personne les lui ait
+     signalees.
+
    -------------------------------------------------------------------
    LA REGLE QUI GOUVERNE CHAQUE MOT ECRIT ICI
    -------------------------------------------------------------------
@@ -48,8 +56,9 @@
    -------------------------------------------------------------------
    CE QUI N'EST PAS ENCORE LA
    -------------------------------------------------------------------
-   Aldo Maglione, l'agent Doyle. Le laboratoire. La cave. Ce que Rosa
-   a reellement fait de sa nuit. La conclusion. Les decors reels -- les
+   L'agent Doyle. Le laboratoire. La cave. Ce que Rosa a reellement
+   fait de sa nuit, et ce qu'Aldo fait reellement de ses ecritures. La
+   conclusion. Les decors reels -- les
    licences d'assets ne sont pas reglees, et rien n'entrera dans
    public/ avant qu'elles le soient.
    =================================================================== */
@@ -83,6 +92,21 @@ export const dernierService: CaseData = {
       initialMood: 'neutral',
       defaultReaction: [
         { speaker: 'rosa', text: 'Je l’ai vu cent fois. Je ne sais pas quoi vous en dire.' },
+      ],
+    },
+    {
+      id: 'aldo',
+      name: 'Aldo Maglione',
+      role: 'Neveu du patron, tient les écritures',
+      /* NEUTRE, et bavard. Il explique avant qu'on demande, il donne
+         des details qu'on ne lui reclame pas -- ce qui passe tres bien
+         pour de la bonne volonte. C'est le seul des quatre qui n'etait
+         pas la cette nuit-la, et il le dit tout de suite. Rien, a ce
+         stade, ne doit permettre de le distinguer d'un neveu serviable
+         qui tient les comptes de son oncle. */
+      initialMood: 'neutral',
+      defaultReaction: [
+        { speaker: 'aldo', text: 'Ça ne me parle pas. Moi je vois des chiffres, pas des choses.' },
       ],
     },
     {
@@ -147,12 +171,12 @@ export const dernierService: CaseData = {
   facts: [
     {
       id: 'fait_nino_parti',
-      text: 'Nino a quitté le restaurant à dix heures moins dix.',
+      text: 'Nino Restivo a quitté le restaurant à dix heures moins dix.',
       topic: 'La nuit du 12',
     },
     {
       id: 'fait_rosa_a_renvoye_nino',
-      text: 'Rosa a demandé à Nino de partir avant l’heure, ce soir-là.',
+      text: 'Rosa Vitale a demandé à Nino Restivo de partir avant l’heure, ce soir-là.',
       topic: 'La nuit du 12',
     },
     {
@@ -162,7 +186,7 @@ export const dernierService: CaseData = {
     },
     {
       id: 'fait_nino_a_vu',
-      text: 'Nino a vu le gérant prendre quelque chose dans le local, quelques jours plus tôt.',
+      text: 'Nino Restivo a vu le gérant prendre quelque chose dans le local, quelques jours plus tôt.',
       topic: 'Le local arrière',
     },
     {
@@ -311,6 +335,72 @@ export const dernierService: CaseData = {
       text: 'Une anisette. Il en prenait une quand il restait tard. C’est moi qui la lui portais.',
       topic: 'La nuit du 12',
       truth: 'true',
+    },
+
+    // --- Aldo ---------------------------------------------------------
+    {
+      id: 'aldo_soiree',
+      speaker: 'aldo',
+      text: 'Je n’étais pas au restaurant. J’ai dîné chez mon oncle et je suis rentré.',
+      topic: 'Emploi du temps',
+      truth: 'true',
+    },
+    {
+      id: 'aldo_ecritures',
+      speaker: 'aldo',
+      text: 'Je tiens les écritures depuis le printemps. Mon oncle n’a plus la tête aux chiffres.',
+      topic: 'Les comptes',
+      truth: 'true',
+    },
+    {
+      id: 'aldo_adriatica',
+      speaker: 'aldo',
+      text: 'Adriatica, c’est le poisson et la glace. Ils livrent deux fois la semaine, le mardi et le vendredi.',
+      topic: 'Les comptes',
+      truth: 'partial',
+    },
+    {
+      /* LA REGLE QU'IL ENONCE LUI-MEME. Elle est irreprochable, et
+         c'est justement ce qui en fait un point d'appui : une regle
+         enoncee est une regle qu'on peut aller verifier. Le joueur
+         n'en a pas encore les moyens. */
+      id: 'aldo_bons',
+      speaker: 'aldo',
+      text: 'Je paie sur présentation du bon de livraison. Pas de bon, pas de facture.',
+      topic: 'Les comptes',
+      truth: 'false',
+    },
+    {
+      id: 'aldo_avances',
+      speaker: 'aldo',
+      text: 'Mon oncle m’a avancé de l’argent, oui. Deux fois. Ça se fait, en famille.',
+      topic: 'Les gens',
+      truth: 'partial',
+    },
+    {
+      id: 'aldo_victor',
+      speaker: 'aldo',
+      text: 'Il vérifiait mes écritures. C’est son métier, je n’en faisais pas une affaire.',
+      topic: 'Les gens',
+      truth: 'false',
+    },
+    {
+      id: 'aldo_au_centime',
+      speaker: 'aldo',
+      text: 'Ce sont mes livres, et mon écriture. Tout y est au centime.',
+      topic: 'Les comptes',
+      truth: 'false',
+    },
+    {
+      /* SA REPONSE SUR LA GLACE. Elle est excellente : une chambre
+         froide perd reellement de la glace, et un inspecteur n'en a
+         jamais tenu. Le joueur repart avec une explication plausible
+         -- ce qui est exactement ce qu'on veut a ce stade. */
+      id: 'aldo_glace_fond',
+      speaker: 'aldo',
+      text: 'La glace se perd. Il en fond la moitié entre le camion et la chambre froide.',
+      topic: 'Les comptes',
+      truth: 'false',
     },
 
     // --- Enzo ---------------------------------------------------------
@@ -587,6 +677,110 @@ export const dernierService: CaseData = {
       records: ['rosa_victor'],
     },
 
+    // --- Aldo ---------------------------------------------------------
+    {
+      id: 'aldo_relance',
+      speaker: 'aldo',
+      question: 'Autre chose ?',
+      category: 'ouverture',
+      once: false,
+      lines: [
+        { speaker: 'detective', text: 'Autre chose ?' },
+        { speaker: 'aldo', text: 'Demandez-moi n’importe quoi sur les chiffres. Le reste, je ne sais pas.' },
+      ],
+    },
+    {
+      id: 'aldo_soiree',
+      speaker: 'aldo',
+      question: 'Où étiez-vous hier soir ?',
+      category: 'ouverture',
+      lines: [
+        { speaker: 'detective', text: 'Où étiez-vous, hier soir ?' },
+        { speaker: 'aldo', text: 'Pas ici. J’ai dîné chez mon oncle.' },
+        { speaker: 'aldo', text: 'Je suis rentré après. Demandez-lui.', beat: 'dismiss' },
+      ],
+      records: ['aldo_soiree'],
+    },
+    {
+      id: 'aldo_ecritures',
+      speaker: 'aldo',
+      question: 'Qui tient les comptes du restaurant ?',
+      category: 'les faits',
+      lines: [
+        { speaker: 'detective', text: 'Les comptes de la maison. Qui les tient ?' },
+        { speaker: 'aldo', text: 'Moi. Depuis le printemps.' },
+        { speaker: 'aldo', text: 'Mon oncle n’a plus la tête aux chiffres. Ça arrive, à son âge.' },
+      ],
+      records: ['aldo_ecritures'],
+      effects: {
+        revealFacts: ['fait_aldo_tient_les_comptes'],
+        unlockTopics: ['aldo_adriatica'],
+      },
+    },
+    {
+      /* Masquee jusqu'a ce qu'il se soit dit comptable. On ne demande
+         pas a quelqu'un le detail de ses fournisseurs avant de savoir
+         qu'il les paie. */
+      id: 'aldo_adriatica',
+      speaker: 'aldo',
+      question: 'Parlez-moi d’Adriatica Fish & Ice.',
+      category: 'les faits',
+      hidden: true,
+      lines: [
+        { speaker: 'detective', text: 'Adriatica Fish & Ice. Qu’est-ce que c’est ?' },
+        { speaker: 'aldo', text: 'Le poisson et la glace. Ils livrent deux fois la semaine, le mardi et le vendredi.' },
+        { speaker: 'aldo', text: 'Je paie sur présentation du bon de livraison. Pas de bon, pas de facture.' },
+      ],
+      records: ['aldo_adriatica', 'aldo_bons'],
+    },
+    {
+      id: 'aldo_avances',
+      speaker: 'aldo',
+      question: 'Votre oncle vous avance-t-il de l’argent ?',
+      category: 'les gens',
+      lines: [
+        { speaker: 'detective', text: 'Votre oncle vous a-t-il déjà avancé de l’argent ?' },
+        { speaker: 'aldo', text: 'Deux fois. Ça se fait, en famille.', pause: 0.4 },
+        { speaker: 'aldo', text: 'Je ne vois pas le rapport, mais je n’en fais pas un secret.' },
+      ],
+      records: ['aldo_avances'],
+    },
+    {
+      id: 'aldo_victor',
+      speaker: 'aldo',
+      question: 'Victor Bellini vérifiait vos écritures.',
+      category: 'les gens',
+      lines: [
+        { speaker: 'detective', text: 'Bellini vérifiait vos écritures.' },
+        { speaker: 'aldo', text: 'C’est son métier. C’était son métier.', beat: 'think', pause: 0.5 },
+        { speaker: 'aldo', text: 'Je n’en faisais pas une affaire.' },
+      ],
+      records: ['aldo_victor'],
+      effects: { revealFacts: ['fait_victor_verifiait'] },
+    },
+    {
+      /* LE RECOUPEMENT.
+         Elle n'apparait que si le joueur a montre les livres a Nino :
+         c'est Nino qui rentre la glace, et c'est lui qui a dit « pas
+         autant, jamais autant ». Sans ce detour, le joueur n'a rien a
+         opposer, et la question n'existe pas.
+
+         Aldo n'est pas pris : il repond, et il repond bien. Une
+         chambre froide perd reellement de la glace. Le joueur repart
+         avec une explication plausible -- et une question de plus. */
+      id: 'aldo_glace',
+      speaker: 'aldo',
+      question: 'Vous achetez plus de glace qu’on n’en consomme.',
+      category: 'les faits',
+      requires: { facts: ['fait_glace_impossible'] },
+      lines: [
+        { speaker: 'detective', text: 'Vous achetez plus de glace qu’une maison de cette taille n’en consomme.' },
+        { speaker: 'aldo', text: 'La glace se perd. Il en fond la moitié entre le camion et la chambre froide.' },
+        { speaker: 'aldo', text: 'Vous n’avez jamais tenu une chambre froide, inspecteur.', beat: 'dismiss', pause: 0.5 },
+      ],
+      records: ['aldo_glace_fond'],
+    },
+
     // --- Enzo ---------------------------------------------------------
     {
       id: 'enzo_relance',
@@ -695,6 +889,44 @@ export const dernierService: CaseData = {
 
   // --- Ce qu'il dit devant un objet -----------------------------------
   reactions: [
+    {
+      character: 'aldo',
+      clue: 'livres_comptes',
+      lines: [
+        { speaker: 'detective', text: 'Vos livres.' },
+        { speaker: 'aldo', text: 'Mon écriture, oui. Regardez-les autant que vous voudrez.' },
+        { speaker: 'aldo', text: 'Tout y est au centime.', beat: 'dismiss' },
+      ],
+      records: ['aldo_au_centime'],
+    },
+    {
+      /* Il se separe du cahier, et il a raison de le faire : ce n'est
+         pas le sien. Une denegation exacte vaut mieux qu'un mensonge
+         -- et elle laisse au joueur un nom de plus a aller voir. */
+      character: 'aldo',
+      clue: 'registre_livraisons',
+      lines: [
+        { speaker: 'detective', text: 'Le cahier des livraisons.' },
+        { speaker: 'aldo', text: 'Ça, c’est la salle. Moi je vois les factures, pas les cahiers.' },
+      ],
+    },
+    {
+      /* DEUX TEMOINS, DEUX JOURS.
+         Enzo a dit mercredi ; Aldo dit mardi et vendredi. Aucun des
+         deux n'est confondu, personne ne crie au mensonge, et le
+         carnet se contente de porter les deux phrases. C'est au joueur
+         de tenir les deux ensemble -- c'est tout le jeu.
+
+         Conditionnee a rien : si le joueur a la declaration d'Enzo,
+         c'est qu'il est alle la chercher avec le registre. */
+      character: 'aldo',
+      statement: 'enzo_livraison_reprise',
+      lines: [
+        { speaker: 'detective', text: 'On me dit que la livraison se fait le mercredi.' },
+        { speaker: 'aldo', text: 'Le mercredi ?', beat: 'think', pause: 0.8 },
+        { speaker: 'aldo', text: 'Mardi et vendredi. Depuis toujours. Qui vous a dit mercredi ?' },
+      ],
+    },
     {
       /* LE VERRE PRESENTE A ROSA.
          Elle ne se derobe pas : elle reconnait l'avoir porte. C'est un

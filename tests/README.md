@@ -35,7 +35,7 @@ Ce répertoire corrige cela pour la partie qui peut l'être tout de suite.
 
 ### `unit/` — le socle
 
-Cinq suites, sans navigateur, sans serveur, sans dépendance. **109 tests, 0 échec.**
+Cinq suites, sans navigateur, sans serveur, sans dépendance. **123 tests, 0 échec.**
 
 | Fichier | Ce qu'il couvre |
 | --- | --- |
@@ -43,7 +43,7 @@ Cinq suites, sans navigateur, sans serveur, sans dépendance. **109 tests, 0 éc
 | `etat.test.ts` | `GameState` : pas de doublon, humeurs, abonnés prévenus une seule fois |
 | `carnet.test.ts` | `Casebook` : regroupement, changements de version, repli « Sans rubrique » |
 | `sauvegarde.test.ts` | `parseSave` : défauts de forme contre identifiants disparus |
-| `affaire.test.ts` | « Le dernier service » : le validateur, la taille de la tranche, la reprise d'Enzo, la retenue de Rosa, et les mots qu'un témoin ne peut pas prononcer |
+| `affaire.test.ts` | « Le dernier service » : le validateur, la taille de la tranche, la reprise d'Enzo, la retenue de Rosa, la contradiction Enzo / Aldo, et les mots qu'un témoin ne peut pas prononcer |
 
 Les modules testés n'importent ni Three.js ni le DOM, ce qui est précisément la raison pour
 laquelle ils sont testables ainsi.
@@ -51,10 +51,15 @@ laquelle ils sont testables ainsi.
 ### `browser/` — une suite à jour, huit héritées
 
 `affaire.mjs` vise **l'affaire réelle** et a été écrite *et rejouée* au moment de son versement :
-**54 contrôles, 0 échec**, deux exécutions de suite. C'est le scénario de référence pour la
-Phase 9. Elle couvre les trois tranches en un seul parcours : le verre renversé et Nino
-Restivo ; le registre des livraisons, Enzo Carbone et la version qu'il doit reprendre ; puis
-Rosa Vitale, son premier entretien et le verre qu'on lui présente.
+**81 contrôles, 0 échec**, trois exécutions de suite. C'est le scénario de référence pour la
+Phase 9. Elle couvre les quatre tranches en un seul parcours : le verre renversé et Nino
+Restivo ; le registre des livraisons, Enzo Carbone et la version qu'il doit reprendre ; les
+livres montrés à Nino, puis Rosa Vitale et le verre qu'on lui présente ; enfin Aldo Maglione,
+ses jours de livraison et la glace qu'il explique.
+
+Elle vérifie aussi un enchaînement qui traverse trois témoins : sans le détour par Nino et
+les livres de comptes, la question sur la glace **n'existe pas** chez Aldo. Le test le
+contrôle dans les deux sens, avant et après.
 
 Elle contient aussi les **cinq pièges de pilotage** que les tranches 2 et 3 ont mis au jour,
 chacun commenté sur place :

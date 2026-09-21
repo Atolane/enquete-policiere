@@ -419,7 +419,7 @@ export class TestRoomScene {
        masqueraient les personnages. Les deux premiers sont separes de plus
        de 6 m et tournes vers l'entree : un personnage qui vous tourne le
        dos ne peut pas vous suivre des yeux, ce qui rendrait la phase
-       intestable. Les trois premiers portent un temoin (voir TEMOINS) ;
+       intestable. Les quatre premiers portent un temoin (voir TEMOINS) ;
        au-dela, ce sont des mannequins de mesure (?personnages=N). */
     { pos: [-3.2, 0, -0.2], yaw: 1.08, tint: 0xffffff, label: 'Mannequin A' },
     { pos: [3.2, 0, -0.2], yaw: -1.08, tint: 0xd6a97a, label: 'Mannequin B' },
@@ -429,7 +429,11 @@ export class TestRoomScene {
        viseur hesitait entre les deux. Au fond de la piece, face a
        l'entree, il est degage de tous les cotes. */
     { pos: [0, 0, -3.6], yaw: Math.PI, tint: 0x9fb4c8, label: 'Mannequin C' },
-    { pos: [1.6, 0, -0.6], yaw: -0.5, tint: 0xc0c0a8, label: 'Mannequin D' },
+    /* Le quatrieme emplacement, deplace en Phase 9 (tranche 4), pour
+       la meme raison que le troisieme : a (1,6 ; -0,6) il etait a 1,7 m
+       du deuxieme et le viseur hesitait. Contre le mur est, en avant de
+       la rampe, il est seul. */
+    { pos: [4.8, 0, 2.2], yaw: 1.14, tint: 0xc0c0a8, label: 'Mannequin D' },
     { pos: [-4.6, 0, 0.6], yaw: 1.3, tint: 0xbba0c4, label: 'Mannequin E' },
     { pos: [4.6, 0, 0.6], yaw: -1.3, tint: 0xa8c4a0, label: 'Mannequin F' },
     { pos: [-0.6, 0, -1.6], yaw: 0.25, tint: 0xd0b8a0, label: 'Mannequin G' },
@@ -450,6 +454,7 @@ export class TestRoomScene {
     { id: 'nino', nom: 'Nino Restivo' },
     { id: 'enzo', nom: 'Enzo Carbone' },
     { id: 'rosa', nom: 'Rosa Vitale' },
+    { id: 'aldo', nom: 'Aldo Maglione' },
   ];
 
   private async loadCharacters(models: ModelLibrary, count: number): Promise<void> {
