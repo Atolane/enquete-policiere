@@ -1,0 +1,12 @@
+{
+  /* Les tests sont verifies a part : ils tournent sous Node, pas dans
+     un navigateur, et ont donc besoin des types de Node plutot que de
+     ceux du DOM. Les ajouter au tsconfig principal changerait la
+     resolution de certains types cote src (setTimeout, par exemple) :
+     deux fichiers valent mieux qu'une regression silencieuse. */
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["node"]
+  },
+  "include": ["tests"]
+}
