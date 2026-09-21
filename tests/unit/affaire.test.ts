@@ -27,12 +27,12 @@ test('l affaire passe le validateur sans un seul probleme', () => {
 });
 
 test('la tranche en cours a la taille annoncee', () => {
-  assert.equal(dernierService.characters.length, 4);
-  assert.equal(dernierService.clues.length, 4);
-  assert.equal(dernierService.facts.length, 11);
-  assert.equal(dernierService.statements.length, 27);
-  assert.equal(dernierService.topics.length, 29);
-  assert.equal(dernierService.reactions.length, 11);
+  assert.equal(dernierService.characters.length, 5);
+  assert.equal(dernierService.clues.length, 5);
+  assert.equal(dernierService.facts.length, 14);
+  assert.equal(dernierService.statements.length, 31);
+  assert.equal(dernierService.topics.length, 34);
+  assert.equal(dernierService.reactions.length, 14);
 });
 
 test('la reprise d Enzo remplace bien sa premiere version', () => {
@@ -297,6 +297,117 @@ test('un fait acquis nomme les temoins en entier', () => {
     }
   }
 });
+
+/* ===================================================================
+   LE RESULTAT DE LABORATOIRE
+
+   C'est le premier objet de l'affaire qui ressemble a une preuve, et
+   c'est pour cela qu'il est le plus dangereux. Un bulletin mal ecrit
+   ferait le travail a la place du joueur : il lui dirait de quoi
+   Victor est mort, et l'enquete deviendrait une formalite.
+
+   Les quatre tests qui suivent tiennent la ligne : le bulletin dit ce
+   qu'il a vu, il ne conclut pas, il ne designe personne, et le moteur
+   n'en tire rien.
+   =================================================================== */
+
+const bulletin = () => {
+  const fait = dernierService.facts.find((f) => f.id === 'fait_labo_preliminaire');
+  const dite = dernierService.statements.find((s) => s.id === 'doyle_resultat_preliminaire');
+  const question = dernierService.topics.find((t) => t.id === 'doyle_resultat');
+  assert.notEqual(fait, undefined);
+  assert.notEqual(dite, undefined);
+  assert.notEqual(question, undefined);
+  return { fait: fait!, dite: dite!, question: question! };
+};
+
+test('le bulletin reste preliminaire, et le dit', () => {
+  const { fait, dite } = bulletin();
+  for (const texte of [fait.text, dite.text]) {
+    assert.match(texte, /préliminaire/i);
+    assert.match(texte, /compatible avec la présence/i);
+  }
+  /* « compatible avec la presence de » n'est pas « contenait ». Le
+     jour ou quelqu'un abregera, ce test le dira. */
+  assert.doesNotMatch(fait.text, /contenait|contient|renferm/i);
+  assert.doesNotMatch(dite.text, /contenait|contient|renferm/i);
+});
+
+test('le bulletin ne porte ni quantite, ni date, ni nom', () => {
+  const { fait, dite } = bulletin();
+
+  /* Aucun chiffre : ni un dosage, ni un seuil, ni une heure. Un
+     nombre dans un bulletin est une precision, et nous n'avons defini
+     aucun procede qui la justifierait. */
+  for (const texte of [fait.text, dite.text]) {
+    assert.doesNotMatch(texte, /[0-9]/, 'un chiffre dans le bulletin serait une quantite');
+    assert.doesNotMatch(texte, /milligramme|gramme|dose|taux|seuil/i);
+  }
+
+  /* Aucun nom de personnage : un bulletin qui designe quelqu'un n'est
+     plus un bulletin, c'est une accusation. */
+  for (const sheet of dernierService.characters) {
+    for (const texte of [fait.text, dite.text]) {
+      assert.equal(texte.includes(sheet.name.split(' ')[0]), false, `${sheet.name} n a rien a faire la`);
+    }
+  }
+});
+
+test('le moteur ne conclut rien a la place du joueur', () => {
+  const { question } = bulletin();
+
+  /* La question du laboratoire ne fait qu'une chose : porter le fait
+     au carnet. Elle n'ouvre aucune autre question, ne change aucune
+     humeur, ne termine aucun entretien. */
+  assert.deepEqual(question.effects?.revealFacts, ['fait_labo_preliminaire']);
+  assert.equal(question.effects?.unlockTopics, undefined);
+  assert.equal(question.effects?.setMood, undefined);
+  assert.equal(question.effects?.endInterrogation, undefined);
+
+  /* Et le presenter a quelqu'un ne produit rien non plus. La seule
+     reaction qui existe est celle de Rosa, et elle est sans effet :
+     ce qu'il faut en penser n'appartient qu'au joueur. */
+  const faceAuBulletin = dernierService.reactions.filter(
+    (r) => r.statement === 'doyle_resultat_preliminaire',
+  );
+  assert.equal(faceAuBulletin.length, 1);
+  assert.equal(faceAuBulletin[0].character, 'rosa');
+  assert.equal(faceAuBulletin[0].effects, undefined);
+  assert.equal(faceAuBulletin[0].records, undefined);
+});
+
+test('le bulletin n existe que si le joueur remet la bouteille', () => {
+  const { question } = bulletin();
+  assert.equal(question.hidden, true);
+
+  const ouvrent = dernierService.reactions.filter((r) =>
+    (r.effects?.unlockTopics ?? []).includes('doyle_resultat'),
+  );
+  const aussi = dernierService.topics.filter((t) =>
+    (t.effects?.unlockTopics ?? []).includes('doyle_resultat'),
+  );
+  assert.equal(aussi.length, 0, 'aucune question ne doit ouvrir le laboratoire');
+  assert.equal(ouvrent.length, 1, 'un seul geste doit l ouvrir');
+  assert.equal(ouvrent[0].character, 'doyle');
+  assert.equal(ouvrent[0].clue, 'bouteille_anisette');
+});
+
+/* Doyle rapporte ; il ne juge pas. Ces mots-la sont ceux d'un homme
+   qui a deja conclu, et un rapport qui conclut n'est plus un rapport. */
+const interditsDoyle: ReadonlyArray<[string, string]> = [
+  ['coupable', 'il constate, il ne designe pas'],
+  ['assassin', 'il constate, il ne designe pas'],
+  ['meurtrier', 'il constate, il ne designe pas'],
+  ['empoisonn', 'le mot n est pas dans le bulletin : il ne sera pas dans sa bouche'],
+  ['certitude', 'un resultat preliminaire n en offre aucune'],
+  ['prouve', 'compatible avec n est pas prouve par'],
+];
+
+for (const [mot, raison] of interditsDoyle) {
+  test(`Doyle ne dit jamais « ${mot} » : ${raison}`, () => {
+    assert.equal(paroles('doyle').includes(mot), false);
+  });
+}
 
 test('les trois indices sont ranges sous un lieu', () => {
   const lieux = new Set(dernierService.clueRubrics.map((r) => r.id));

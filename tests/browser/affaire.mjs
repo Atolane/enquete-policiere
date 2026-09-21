@@ -45,6 +45,8 @@ const REGISTRE = { x: 3.5, y: 1.43, z: -2.45 };
 const ROSA = { x: 0, y: 1.35, z: -3.6 };
 const ALDO = { x: 4.8, y: 1.35, z: 2.2 };
 const LIVRES = { x: 3.5, y: 1.41, z: -2.0 };
+const BOUTEILLE = { x: -5.0, y: 0.13, z: 4.15 };
+const DOYLE = { x: 1.8, y: 1.35, z: 4.9 };
 
 let ok = 0;
 let ko = 0;
@@ -216,6 +218,19 @@ const fiche = () =>
     texte: document.querySelector('.info-text')?.textContent ?? '',
   }));
 
+/**
+ * Clique une entree de la liste, meme si elle a fallu defiler pour la
+ * voir. La liste des pieces a presenter tient maintenant sur plusieurs
+ * ecrans de haut : on l'amene sous les yeux avant de cliquer, ce qu'un
+ * joueur fait a la molette.
+ */
+const cliquerChoix = async (selecteur) => {
+  await page.waitForSelector(selecteur, { timeout: 15000 });
+  await page.$eval(selecteur, (e) => e.scrollIntoView({ block: 'center' }));
+  await page.waitForTimeout(200);
+  await page.click(selecteur);
+};
+
 const choix = () =>
   page.evaluate(() =>
     [...document.querySelectorAll('.dialogue-choice')].map((e) => ({
@@ -245,6 +260,33 @@ const lire = async (max = 20) => {
   return (await choix()).length > 0;
 };
 
+/**
+ * Comme « lire », mais rend tout ce qui est passe a l'ecran.
+ *
+ * Les repliques defilent une par une, au meme endroit : quand la liste
+ * des questions revient, la derniere phrase prononcee a deja disparu.
+ * Pour controler ce qu'un personnage a DIT, il faut donc le noter au
+ * passage -- apres coup, il n'y a plus rien a lire.
+ */
+const lireEnNotant = async (max = 20) => {
+  const vues = [];
+  const noter = async () => {
+    const texte = await page.textContent('#dialogue-line').catch(() => '');
+    if (texte) vues.push(texte);
+  };
+  for (let i = 0; i < 12; i += 1) {
+    if ((await choix()).length === 0) break;
+    await page.waitForTimeout(200);
+  }
+  for (let i = 0; i < max; i += 1) {
+    await noter();
+    if ((await choix()).length > 0) break;
+    await page.click('#dialogue-line', { force: true }).catch(() => {});
+    await page.waitForTimeout(280);
+  }
+  return vues.join(' | ');
+};
+
 // --- 1. Un indice du bureau -------------------------------------------
 
 /* On longe le mur sud : l'appareil de presse ferme le passage direct. */
@@ -264,11 +306,96 @@ await page.mouse.click(500, 280);
 await page.waitForTimeout(300);
 check('la fiche se referme', (await fiche()).ouverte === false);
 
+// --- 1 bis. La bouteille, au sol contre le pied de la table -----------
+
+/* Un pas de cote, au sud de la table. Depuis le poste d'ou l'on
+   examine le verre, la ligne de visee plonge et vient mourir dans le
+   plateau : la bouteille est au sol, derriere le meuble. On se place
+   du meme cote qu'elle, et elle apparait. */
+await trajet('jusqu a la bouteille', [{ x: -3.4, z: 4.4, arret: 0.5 }]);
+const invite1b = await viserJusqua(BOUTEILLE, /Examiner la bouteille/);
+check('le viseur annonce la bouteille', /Examiner la bouteille/.test(invite1b), `"${invite1b}"`);
+await page.mouse.click(500, 280);
+await page.waitForTimeout(400);
+const fiche1b = await fiche();
+check('la fiche de la bouteille s ouvre', fiche1b.ouverte && /anisette/i.test(fiche1b.titre), fiche1b.titre);
+check(
+  'elle decrit ce qu on voit, et rien de plus',
+  /trace sèche/.test(fiche1b.texte) && !/arsenic|poison|analyse/i.test(fiche1b.texte),
+  fiche1b.texte.slice(0, 60),
+);
+await page.mouse.click(500, 280);
+await page.waitForTimeout(300);
+
+// --- 1 ter. L'agent Doyle, pres de l'entree ---------------------------
+
+await trajet('jusqu a Doyle', [
+  { x: -2.6, z: 4.4 },
+  { x: 0, z: 4.4 },
+  { ...DOYLE, arret: 1.7 },
+]);
+const inviteD = await viserJusqua(DOYLE, /Interroger Agent Doyle/);
+check('le viseur annonce l agent Doyle', /Interroger Agent Doyle/.test(inviteD), `"${inviteD}"`);
+await page.mouse.click(500, 280);
+const enteteDoyle = await attendreEntretien('Agent Doyle');
+check('l entretien s ouvre sur l agent Doyle', enteteDoyle.ouvert && enteteDoyle.nom.includes('Agent Doyle'), enteteDoyle.nom);
+check('sa qualite est affichee', /police/i.test(enteteDoyle.role), enteteDoyle.role);
+
+const doyleAvant = await choix();
+check(
+  'la question du laboratoire n existe pas encore',
+  !doyleAvant.some((o) => o.topic === 'doyle_resultat'),
+  JSON.stringify(doyleAvant.map((o) => o.texte)),
+);
+
+await cliquerChoix('.dialogue-choice[data-topic="doyle_alerte"]');
+await page.waitForTimeout(350);
+check('il dit qui a donne l alerte', await lire());
+
+/* LA BOUTEILLE EN MAIN PROPRE. C'est le seul geste, dans tout le jeu,
+   qui ouvre la question du laboratoire. */
+await page.click('#dialogue-present');
+await page.waitForTimeout(400);
+const piecesDoyle = await page.evaluate(() =>
+  [...document.querySelectorAll('.dialogue-choice')].map((e) => e.dataset.evidence ?? ''),
+);
+check(
+  'la bouteille lui est presentable',
+  piecesDoyle.includes('clue:bouteille_anisette'),
+  JSON.stringify(piecesDoyle),
+);
+await cliquerChoix('.dialogue-choice[data-evidence="clue:bouteille_anisette"]');
+await page.waitForTimeout(400);
+check('il emporte la bouteille', await lire());
+
+const doyleApres = await choix();
+check(
+  'la bouteille remise ouvre la question du laboratoire',
+  doyleApres.some((o) => o.topic === 'doyle_resultat'),
+  JSON.stringify(doyleApres.map((o) => o.texte)),
+);
+
+await cliquerChoix('.dialogue-choice[data-topic="doyle_resultat"]');
+await page.waitForTimeout(350);
+const repliques = await lireEnNotant();
+check('il lit le resultat', repliques.length > 0, repliques.slice(0, 60));
+
+/* Ce qu'il vient de dire compte ; ce qu'il n'a PAS dit compte autant.
+   Ni un nom, ni une quantite, ni un verdict. */
+check('le resultat est annonce comme preliminaire', /préliminaire/i.test(repliques), repliques.slice(0, 120));
+check('la prudence est dans sa bouche, pas seulement au carnet', /compatible avec la présence/i.test(repliques));
+check('il dit lui-meme ce qu il ignore', /ni quand/i.test(repliques) && /ni par qui/i.test(repliques));
+check('il ne designe personne', !/coupable|assassin|empoisonn/i.test(repliques));
+check('il n avance aucun chiffre', !/[0-9]/.test(repliques), repliques.slice(0, 120));
+
+await page.keyboard.press('Escape');
+await page.waitForTimeout(400);
+check('le joueur reprend la main en quittant Doyle', await reprendreLaMain());
+
 // --- 2. Le temoin ------------------------------------------------------
 
 /* Retour par x = 0 : c'est la seule ouverture du passage etroit. */
 await trajet('jusqu a Nino', [
-  { x: -2.0, z: 3.7 },
   { x: 0, z: 3.7 },
   { x: 0, z: 0.4 },
   { x: -2.4, z: -0.2, arret: 0.6 },
@@ -285,7 +412,7 @@ const avant = await choix();
 check('les questions sont celles de l affaire', avant.some((o) => o.topic === 'nino_heure'), JSON.stringify(avant.map((o) => o.texte)));
 check('la question masquee n est pas encore la', !avant.some((o) => o.topic === 'nino_pourquoi_tot'));
 
-await page.click('.dialogue-choice[data-topic="nino_heure"]');
+await cliquerChoix('.dialogue-choice[data-topic="nino_heure"]');
 await page.waitForTimeout(350);
 await lire();
 
@@ -300,7 +427,7 @@ check(
    c'est ce fait -- pas une humeur, pas un soupcon -- qui ouvrira une
    question chez Rosa, trois pieces plus loin. C'est le premier lien
    entre deux temoins que le jeu met reellement a l'epreuve. */
-await page.click('.dialogue-choice[data-topic="nino_pourquoi_tot"]');
+await cliquerChoix('.dialogue-choice[data-topic="nino_pourquoi_tot"]');
 await page.waitForTimeout(350);
 check('il dit pourquoi il est parti tot', await lire());
 
@@ -365,7 +492,7 @@ check(
   piecesNino.includes('clue:livres_comptes'),
   JSON.stringify(piecesNino),
 );
-await page.click('.dialogue-choice[data-evidence="clue:livres_comptes"]');
+await cliquerChoix('.dialogue-choice[data-evidence="clue:livres_comptes"]');
 await page.waitForTimeout(400);
 check('il repond sur la glace', await lire());
 
@@ -387,7 +514,7 @@ const enteteEnzo = await attendreEntretien('Enzo Carbone');
 check('l entretien s ouvre sur Enzo Carbone', enteteEnzo.ouvert && enteteEnzo.nom.includes('Enzo Carbone'), enteteEnzo.nom);
 
 // Il invoque une livraison.
-await page.click('.dialogue-choice[data-topic="enzo_matin"]');
+await cliquerChoix('.dialogue-choice[data-topic="enzo_matin"]');
 await page.waitForTimeout(350);
 await lire();
 const avantPiece = await choix();
@@ -404,7 +531,7 @@ check(
   pieces.includes('clue:registre_livraisons'),
   JSON.stringify(pieces),
 );
-await page.click('.dialogue-choice[data-evidence="clue:registre_livraisons"]');
+await cliquerChoix('.dialogue-choice[data-evidence="clue:registre_livraisons"]');
 await page.waitForTimeout(400);
 await lire();
 
@@ -415,7 +542,7 @@ check(
   JSON.stringify(apresPiece.map((o) => o.texte)),
 );
 
-await page.click('.dialogue-choice[data-topic="enzo_matin_reprise"]');
+await cliquerChoix('.dialogue-choice[data-topic="enzo_matin_reprise"]');
 await page.waitForTimeout(350);
 check('la reprise se joue jusqu au bout', await lire());
 
@@ -451,7 +578,7 @@ check(
   JSON.stringify(rosaAvant.map((o) => o.texte)),
 );
 
-await page.click('.dialogue-choice[data-topic="rosa_fermeture"]');
+await cliquerChoix('.dialogue-choice[data-topic="rosa_fermeture"]');
 await page.waitForTimeout(350);
 check('elle repond sur la fermeture', await lire());
 
@@ -467,7 +594,7 @@ check(
   JSON.stringify(rosaApres.map((o) => o.texte)),
 );
 
-await page.click('.dialogue-choice[data-topic="rosa_depart"]');
+await cliquerChoix('.dialogue-choice[data-topic="rosa_depart"]');
 await page.waitForTimeout(350);
 check('elle donne son heure', await lire());
 
@@ -483,7 +610,7 @@ check(
   piecesRosa.includes('clue:verre_renverse'),
   JSON.stringify(piecesRosa),
 );
-await page.click('.dialogue-choice[data-evidence="clue:verre_renverse"]');
+await cliquerChoix('.dialogue-choice[data-evidence="clue:verre_renverse"]');
 await page.waitForTimeout(400);
 check('elle reagit au verre', await lire());
 
@@ -492,6 +619,30 @@ check(
   'le verre ne lui ouvre aucune question nouvelle',
   rosaFin.length === rosaApres.length - 1,
   `avant ${rosaApres.length}, apres ${rosaFin.length}`,
+);
+
+/* LE BULLETIN PRESENTE A ROSA.
+   C'est elle qui portait l'anisette : c'est la seule personne a qui
+   le montrer aille de soi. Et il ne se passe rien. */
+await page.click('#dialogue-present');
+await page.waitForTimeout(400);
+const piecesRosa2 = await page.evaluate(() =>
+  [...document.querySelectorAll('.dialogue-choice')].map((e) => e.dataset.evidence ?? ''),
+);
+check(
+  'le resultat du chimiste lui est presentable',
+  piecesRosa2.includes('statement:doyle_resultat_preliminaire'),
+  JSON.stringify(piecesRosa2),
+);
+await cliquerChoix('.dialogue-choice[data-evidence="statement:doyle_resultat_preliminaire"]');
+await page.waitForTimeout(400);
+check('elle repond au chimiste', await lire());
+
+const rosaBulletin = await choix();
+check(
+  'le bulletin ne lui ouvre aucune question non plus',
+  rosaBulletin.length === rosaFin.length,
+  `avant ${rosaFin.length}, apres ${rosaBulletin.length}`,
 );
 
 // --- 6. Aldo Maglione --------------------------------------------------
@@ -527,7 +678,7 @@ check(
   JSON.stringify(aldoAvant.map((o) => o.texte)),
 );
 
-await page.click('.dialogue-choice[data-topic="aldo_ecritures"]');
+await cliquerChoix('.dialogue-choice[data-topic="aldo_ecritures"]');
 await page.waitForTimeout(350);
 check('il repond sur les ecritures', await lire());
 
@@ -538,7 +689,7 @@ check(
   JSON.stringify(aldoApres.map((o) => o.texte)),
 );
 
-await page.click('.dialogue-choice[data-topic="aldo_adriatica"]');
+await cliquerChoix('.dialogue-choice[data-topic="aldo_adriatica"]');
 await page.waitForTimeout(350);
 check('il donne ses jours de livraison', await lire());
 
@@ -557,7 +708,7 @@ check(
   piecesAldo.includes('statement:enzo_livraison_reprise'),
   JSON.stringify(piecesAldo),
 );
-await page.click('.dialogue-choice[data-evidence="statement:enzo_livraison_reprise"]');
+await cliquerChoix('.dialogue-choice[data-evidence="statement:enzo_livraison_reprise"]');
 await page.waitForTimeout(400);
 check('il repond sur le jour de livraison', await lire());
 
@@ -568,7 +719,7 @@ check(
   `avant ${avantFace.length}, apres ${apresFace.length}`,
 );
 
-await page.click('.dialogue-choice[data-topic="aldo_glace"]');
+await cliquerChoix('.dialogue-choice[data-topic="aldo_glace"]');
 await page.waitForTimeout(350);
 check('il explique la glace', await lire());
 
@@ -604,7 +755,19 @@ check(
   !/contradi|incompatible|pourtant|or,|dement/i.test(carnet.texte),
 );
 check('la glace qu il explique y figure', /fond la moitié/.test(carnet.texte));
-check('aucun identifiant technique a l ecran', !/nino_|enzo_|rosa_|aldo_|fait_|registre_livraisons/.test(carnet.texte));
+check('l agent Doyle a sa propre section', /Agent Doyle/.test(carnet.texte));
+check('la bouteille est rangee sous un lieu', /anisette/i.test(carnet.texte));
+check('le resultat y figure tel qu il a ete dit', /préliminaire/i.test(carnet.texte));
+check('et sa prudence avec lui', /compatible avec la présence/i.test(carnet.texte));
+check(
+  'le carnet ne transforme pas le bulletin en verdict',
+  !/empoisonn|coupable|assassin|prouve|meurtre/i.test(carnet.texte),
+);
+check(
+  'aucune quantite n est apparue en chemin',
+  !/milligramme|gramme|dose|taux|seuil/i.test(carnet.texte),
+);
+check('aucun identifiant technique a l ecran', !/nino_|enzo_|rosa_|aldo_|doyle_|fait_|registre_livraisons/.test(carnet.texte));
 
 check('aucune erreur de console', erreurs.length === 0, erreurs.join(' | '));
 

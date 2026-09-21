@@ -304,6 +304,17 @@ export class TestRoomScene {
     // Rien d'autre que l'identifiant : les mots sont dans src/data/.
     this.makeExaminable(ashtray, { kind: 'clue', clueId: 'verre_renverse' });
 
+    /* Une bouteille, au sol contre le pied de la table. Posee la et
+       non sur le plateau : a 60 cm du verre, sur le meme plan, le
+       viseur aurait hesite entre les deux. Au sol, la difference de
+       hauteur suffit a les separer sans que le joueur y pense. */
+    const bottle = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.045, 0.05, 0.26, 14),
+      this.materials.object,
+    );
+    bottle.position.set(-5.0, 0.13, 4.15);
+    this.makeExaminable(bottle, { kind: 'clue', clueId: 'bouteille_anisette' });
+
     // --- 2. Un document, pose sur la grande caisse ---
     const document = new THREE.Mesh(
       new THREE.BoxGeometry(0.3, 0.015, 0.22),
@@ -419,7 +430,7 @@ export class TestRoomScene {
        masqueraient les personnages. Les deux premiers sont separes de plus
        de 6 m et tournes vers l'entree : un personnage qui vous tourne le
        dos ne peut pas vous suivre des yeux, ce qui rendrait la phase
-       intestable. Les quatre premiers portent un temoin (voir TEMOINS) ;
+       intestable. Les cinq premiers portent un temoin (voir TEMOINS) ;
        au-dela, ce sont des mannequins de mesure (?personnages=N). */
     { pos: [-3.2, 0, -0.2], yaw: 1.08, tint: 0xffffff, label: 'Mannequin A' },
     { pos: [3.2, 0, -0.2], yaw: -1.08, tint: 0xd6a97a, label: 'Mannequin B' },
@@ -434,7 +445,10 @@ export class TestRoomScene {
        du deuxieme et le viseur hesitait. Contre le mur est, en avant de
        la rampe, il est seul. */
     { pos: [4.8, 0, 2.2], yaw: 1.14, tint: 0xc0c0a8, label: 'Mannequin D' },
-    { pos: [-4.6, 0, 0.6], yaw: 1.3, tint: 0xbba0c4, label: 'Mannequin E' },
+    /* Le cinquieme emplacement, deplace en Phase 9 (tranche 5) : il
+       porte l'agent Doyle, et un agent se tient a la porte. Pres du
+       point d'apparition, a l'ecart du chemin qui mene a la table. */
+    { pos: [1.8, 0, 4.9], yaw: 0.35, tint: 0xbba0c4, label: 'Mannequin E' },
     { pos: [4.6, 0, 0.6], yaw: -1.3, tint: 0xa8c4a0, label: 'Mannequin F' },
     { pos: [-0.6, 0, -1.6], yaw: 0.25, tint: 0xd0b8a0, label: 'Mannequin G' },
     { pos: [0.8, 0, -1.6], yaw: -0.25, tint: 0xa0a8d0, label: 'Mannequin H' },
@@ -455,6 +469,7 @@ export class TestRoomScene {
     { id: 'enzo', nom: 'Enzo Carbone' },
     { id: 'rosa', nom: 'Rosa Vitale' },
     { id: 'aldo', nom: 'Aldo Maglione' },
+    { id: 'doyle', nom: 'Agent Doyle' },
   ];
 
   private async loadCharacters(models: ModelLibrary, count: number): Promise<void> {

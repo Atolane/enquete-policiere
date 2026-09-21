@@ -69,6 +69,18 @@
   flex-direction: column;
   gap: 2px;
   margin-top: 4px;
+
+  /* LA LISTE NE DOIT PAS SORTIR PAR LE HAUT.
+     Le panneau est ancre en bas et grandit vers le haut. Tant qu'un
+     personnage avait cinq questions, cela ne se voyait pas ; a la
+     cinquieme tranche, la liste des pieces a presenter depasse le
+     bord superieur de l'ecran sur un portable, et les dernieres
+     lignes deviennent inatteignables -- pour un test comme pour un
+     joueur. Elle defile donc, plutot que de disparaitre. */
+  max-height: min(46vh, 340px);
+  overflow-y: auto;
+  /* Le doigt et la molette agissent ici, pas sur la page derriere. */
+  overscroll-behavior: contain;
 }
 
 .dialogue-choice {

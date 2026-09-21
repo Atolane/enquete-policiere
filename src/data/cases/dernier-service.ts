@@ -24,6 +24,11 @@
      l'anisette -- et rien de ce qu'elle dit ici ne permet encore de
      l'inquieter. C'est exactement ce qu'on attend d'elle a ce stade.
 
+     L'agent Doyle, qui garde la porte. Il n'est pas un suspect : il
+     est arrive apres. Il est la voie par laquelle une bouteille
+     ramassee au pied d'une table devient un resultat de laboratoire
+     -- preliminaire, sans quantite, sans date et sans nom.
+
      Aldo Maglione, neveu du patron, qui tient les ecritures. Le seul
      des quatre qui n'etait pas la cette nuit-la, et il le dit tout de
      suite. Il explique volontiers, il donne des chiffres, il enonce
@@ -56,7 +61,7 @@
    -------------------------------------------------------------------
    CE QUI N'EST PAS ENCORE LA
    -------------------------------------------------------------------
-   L'agent Doyle. Le laboratoire. La cave. Ce que Rosa a reellement
+   La contre-epreuve du laboratoire. La cave. Ce que Rosa a reellement
    fait de sa nuit, et ce qu'Aldo fait reellement de ses ecritures. La
    conclusion. Les decors reels -- les
    licences d'assets ne sont pas reglees, et rien n'entrera dans
@@ -110,6 +115,20 @@ export const dernierService: CaseData = {
       ],
     },
     {
+      id: 'doyle',
+      name: 'Agent Doyle',
+      role: 'Police de Boston',
+      /* Il n'est pas un suspect et il ne le sera jamais : il est
+         arrive apres. Son interet est ailleurs -- c'est par lui que
+         passent les choses que l'inspecteur ne peut pas constater
+         seul, et il les rapporte avec la prudence d'un homme qui a vu
+         des rapports se faire demolir au tribunal. */
+      initialMood: 'neutral',
+      defaultReaction: [
+        { speaker: 'doyle', text: 'C’est votre affaire, inspecteur. Moi je garde la porte.' },
+      ],
+    },
+    {
       id: 'enzo',
       name: 'Enzo Carbone',
       role: 'Gérant',
@@ -154,6 +173,20 @@ export const dernierService: CaseData = {
       prompt: 'Examiner le téléphone',
       description:
         'Le combiné pend au bout de son fil, à côté du fauteuil. Personne ne l’a raccroché.',
+      rubric: 'bureau',
+    },
+    {
+      /* L'OBJET DONT TOUT LE RESTE DE LA TRANCHE DEPEND.
+         Sa description dit ce qu'on voit : une bouteille, un bouchon,
+         une trace. Elle ne dit pas ce qu'il y a dedans -- c'est
+         precisement la question, et ce n'est pas a un objet d'y
+         repondre. */
+      id: 'bouteille_anisette',
+      name: 'Une bouteille d’anisette',
+      prompt: 'Examiner la bouteille',
+      description:
+        'Une bouteille d’anisette posée contre le pied de la table, rebouchée, à moitié ' +
+        'pleine. L’étiquette est intacte. Le goulot porte une trace sèche.',
       rubric: 'bureau',
     },
     {
@@ -225,6 +258,36 @@ export const dernierService: CaseData = {
       id: 'fait_verre_servi',
       text: 'Un verre d’anisette était porté à Victor Bellini les soirs où il restait tard.',
       topic: 'La nuit du 12',
+    },
+    {
+      id: 'fait_scene_gardee',
+      text: 'Le bureau est gardé depuis sept heures dix, le 13 au matin.',
+      topic: 'Le 13 au matin',
+    },
+    {
+      id: 'fait_enzo_a_trouve',
+      text:
+        'C’est Enzo Carbone qui a découvert le corps et donné l’alerte, depuis le café d’en face.',
+      topic: 'Le 13 au matin',
+    },
+    {
+      /* LE RESULTAT DE LABORATOIRE, TEL QU'IL DOIT ETRE LU.
+         Ce fait enonce ce que le bulletin DIT. Il n'enonce pas ce que
+         le bulletin prouve, et il ne designe personne. « Compatible
+         avec la presence de » n'est pas « contenait » ; un resultat
+         preliminaire n'est pas un resultat ; et l'absence de quantite,
+         de date et d'origine est ecrite noir sur blanc dans le fait
+         lui-meme, pour que le joueur ne puisse pas l'oublier.
+
+         C'est au joueur de decider ce que cela vaut. Le moteur, lui,
+         n'en tire rien : aucune humeur ne bouge, aucune question ne
+         s'ouvre ailleurs, aucun epilogue ne s'y accroche. */
+      id: 'fait_labo_preliminaire',
+      text:
+        'Un résultat préliminaire du chimiste municipal est compatible avec la présence ' +
+        'd’un composé arsenical dans le résidu de la bouteille. Il ne porte ni quantité, ' +
+        'ni date, ni origine, et demande une contre-épreuve.',
+      topic: 'Le laboratoire',
     },
     {
       id: 'fait_aldo_tient_les_comptes',
@@ -401,6 +464,43 @@ export const dernierService: CaseData = {
       text: 'La glace se perd. Il en fond la moitié entre le camion et la chambre froide.',
       topic: 'Les comptes',
       truth: 'false',
+    },
+
+    // --- Doyle --------------------------------------------------------
+    {
+      id: 'doyle_scene',
+      speaker: 'doyle',
+      text: 'Personne n’est entré avant moi. J’ai pris la porte à sept heures dix.',
+      topic: 'Le 13 au matin',
+      claimedTime: '07:10',
+      truth: 'true',
+    },
+    {
+      id: 'doyle_alerte',
+      speaker: 'doyle',
+      text: 'C’est le gérant qui l’a trouvé. Il a appelé du café d’en face.',
+      topic: 'Le 13 au matin',
+      truth: 'true',
+    },
+    {
+      id: 'doyle_medecin',
+      speaker: 'doyle',
+      text: 'Le médecin ne se prononce pas. Pas de blessure, pas de lutte. Il demande une analyse.',
+      topic: 'Le 13 au matin',
+      truth: 'true',
+    },
+    {
+      /* La phrase telle qu'elle ira au carnet. Trois negations, dans
+         cet ordre : ni combien, ni quand, ni par qui. Elles ne sont
+         pas de la coquetterie -- ce sont les trois questions que le
+         joueur va se poser, et le bulletin n'en tranche aucune. */
+      id: 'doyle_resultat_preliminaire',
+      speaker: 'doyle',
+      text:
+        'Résultat préliminaire : compatible avec la présence d’un composé arsenical dans ' +
+        'le résidu. Il ne dit pas combien, ni quand, ni par qui.',
+      topic: 'Le laboratoire',
+      truth: 'true',
     },
 
     // --- Enzo ---------------------------------------------------------
@@ -781,6 +881,88 @@ export const dernierService: CaseData = {
       records: ['aldo_glace_fond'],
     },
 
+    // --- Doyle --------------------------------------------------------
+    {
+      id: 'doyle_relance',
+      speaker: 'doyle',
+      question: 'Autre chose ?',
+      category: 'ouverture',
+      once: false,
+      lines: [
+        { speaker: 'detective', text: 'Autre chose ?' },
+        { speaker: 'doyle', text: 'Je note tout, inspecteur. Demandez.' },
+      ],
+    },
+    {
+      id: 'doyle_scene',
+      speaker: 'doyle',
+      question: 'Qui est entré ici avant vous ?',
+      category: 'les faits',
+      lines: [
+        { speaker: 'detective', text: 'Qui est entré dans ce bureau avant vous ?' },
+        { speaker: 'doyle', text: 'Personne. J’ai pris la porte à sept heures dix.' },
+        { speaker: 'doyle', text: 'Le gérant attendait dehors. Il n’a pas voulu rentrer.', beat: 'think' },
+      ],
+      records: ['doyle_scene'],
+      effects: { revealFacts: ['fait_scene_gardee'] },
+    },
+    {
+      /* Elle ramene au combine decroche : le telephone d'ici ne
+         servait plus, il a fallu traverser la rue. Le joueur peut
+         l'avoir vu avant, ou l'apprendre ici. */
+      id: 'doyle_alerte',
+      speaker: 'doyle',
+      question: 'Qui a donné l’alerte ?',
+      category: 'les faits',
+      lines: [
+        { speaker: 'detective', text: 'Qui a donné l’alerte ?' },
+        { speaker: 'doyle', text: 'Le gérant. Il l’a trouvé en ouvrant.' },
+        { speaker: 'doyle', text: 'Il a appelé du café d’en face. Le poste d’ici ne servait à rien.' },
+      ],
+      records: ['doyle_alerte'],
+      effects: { revealFacts: ['fait_enzo_a_trouve'] },
+    },
+    {
+      id: 'doyle_medecin',
+      speaker: 'doyle',
+      question: 'Qu’a dit le médecin ?',
+      category: 'les faits',
+      lines: [
+        { speaker: 'detective', text: 'Le médecin est passé. Qu’a-t-il dit ?' },
+        { speaker: 'doyle', text: 'Qu’il ne se prononce pas. Pas de blessure, pas de lutte.' },
+        { speaker: 'doyle', text: 'Il demande une analyse. Il ne signera rien avant.', beat: 'think' },
+      ],
+      records: ['doyle_medecin'],
+    },
+    {
+      /* Masquee, et rien ne l'ouvre qu'une bouteille remise en main
+         propre. Sans l'objet, pas d'analyse ; sans analyse, pas de
+         question. L'ordre n'est pas decoratif : c'est ce qui fait du
+         bulletin le resultat d'un geste du joueur, et non une
+         information que le jeu lui sert. */
+      id: 'doyle_resultat',
+      speaker: 'doyle',
+      question: 'Qu’en dit le chimiste ?',
+      category: 'les faits',
+      hidden: true,
+      lines: [
+        { speaker: 'detective', text: 'La bouteille. Qu’en dit le chimiste ?' },
+        { speaker: 'doyle', text: 'Un test de paillasse, fait ce matin. Préliminaire, rien de plus.' },
+        {
+          speaker: 'doyle',
+          text: 'Compatible avec la présence d’un composé arsenical dans le résidu.',
+          pause: 0.7,
+        },
+        {
+          speaker: 'doyle',
+          text: 'Il ne dit pas combien. Ni quand. Ni par qui. Et il demande une contre-épreuve.',
+          beat: 'think',
+        },
+      ],
+      records: ['doyle_resultat_preliminaire'],
+      effects: { revealFacts: ['fait_labo_preliminaire'] },
+    },
+
     // --- Enzo ---------------------------------------------------------
     {
       id: 'enzo_relance',
@@ -889,6 +1071,42 @@ export const dernierService: CaseData = {
 
   // --- Ce qu'il dit devant un objet -----------------------------------
   reactions: [
+    {
+      /* LE GESTE QUI DECLENCHE L'ANALYSE.
+         C'est la seule chose, dans tout le jeu, qui ouvre la question
+         du laboratoire. */
+      character: 'doyle',
+      clue: 'bouteille_anisette',
+      lines: [
+        { speaker: 'detective', text: 'Cette bouteille était contre le pied de la table.' },
+        { speaker: 'doyle', text: 'Je la fais porter au chimiste municipal. Il est à trois rues.' },
+        { speaker: 'doyle', text: 'Redemandez-moi tout à l’heure.', beat: 'think' },
+      ],
+      effects: { unlockTopics: ['doyle_resultat'] },
+    },
+    {
+      character: 'doyle',
+      clue: 'verre_renverse',
+      lines: [
+        { speaker: 'detective', text: 'Le verre, sur le sous-main.' },
+        { speaker: 'doyle', text: 'Je l’ai laissé tel quel. On ne touche à rien avant le photographe.' },
+      ],
+    },
+    {
+      /* LE RESULTAT PRESENTE A ROSA.
+         C'est elle qui portait l'anisette : lui montrer le bulletin
+         est la seule chose qui aille de soi. Et il ne se passe rien --
+         aucun fait, aucune question, aucune humeur. Elle repond ce
+         qu'une femme repondrait si elle n'avait rien fait, et c'est
+         exactement ce que le joueur doit avoir a interpreter. */
+      character: 'rosa',
+      statement: 'doyle_resultat_preliminaire',
+      lines: [
+        { speaker: 'detective', text: 'Le chimiste a regardé le fond de cette bouteille.' },
+        { speaker: 'rosa', text: 'Elle est ouverte depuis des semaines.', pause: 0.5 },
+        { speaker: 'rosa', text: 'Tout le monde passe derrière ce bar, inspecteur. Moi la première.' },
+      ],
+    },
     {
       character: 'aldo',
       clue: 'livres_comptes',
