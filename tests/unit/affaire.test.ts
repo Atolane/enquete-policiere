@@ -27,12 +27,12 @@ test('l affaire passe le validateur sans un seul probleme', () => {
 });
 
 test('la tranche en cours a la taille annoncee', () => {
-  assert.equal(dernierService.characters.length, 2);
+  assert.equal(dernierService.characters.length, 3);
   assert.equal(dernierService.clues.length, 4);
-  assert.equal(dernierService.facts.length, 9);
-  assert.equal(dernierService.statements.length, 13);
-  assert.equal(dernierService.topics.length, 16);
-  assert.equal(dernierService.reactions.length, 7);
+  assert.equal(dernierService.facts.length, 11);
+  assert.equal(dernierService.statements.length, 19);
+  assert.equal(dernierService.topics.length, 22);
+  assert.equal(dernierService.reactions.length, 8);
 });
 
 test('la reprise d Enzo remplace bien sa premiere version', () => {
@@ -97,7 +97,14 @@ function paroles(character: string): string {
     if (statement.speaker === character) morceaux.push(statement.text);
   }
 
-  return morceaux.join(' ‖ ').toLowerCase();
+  /* Accents retires : sans cela, « brule » ne verrait pas « brulé » et
+     « releve » ne verrait pas « relevé ». Un interdit qu'un accent
+     suffit a contourner n'est pas un interdit. */
+  return morceaux
+    .join(' ‖ ')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
 }
 
 /* Les mots que Nino ne peut pas prononcer, et la raison de chacun.
@@ -127,6 +134,69 @@ test('le mensonge de Nino est bien marque comme tel, et il est seul', () => {
 
   assert.equal(faux.length, 1, 'Nino ne ment que sur une chose');
   assert.equal(faux[0].id, 'nino_sac_rien', 'et c est le sac, pas le reste');
+});
+
+/* CE QUE ROSA NE PEUT PAS DIRE A SON PREMIER ENTRETIEN.
+   Deux raisons distinctes, et il vaut mieux ne pas les confondre.
+
+   Les premiers mots relevent de la meme regle que pour Nino : une
+   source ne donne pas plus que ce qu'elle possede honnetement. Rosa
+   n'a aucune raison de parler du poele, des cendres ou d'un document
+   dont personne ne lui a parle.
+
+   Les seconds relevent d'autre chose : ils diraient trop tot ce que
+   l'affaire doit faire decouvrir. Une femme qui evoque d'elle-meme son
+   retour, ou qui se defend d'un soupcon que nul n'a formule, s'est
+   deja designee. Le joueur n'aurait plus d'enquete a mener sur elle,
+   seulement une confirmation a aller chercher. */
+const interditsRosa: ReadonlyArray<[string, string]> = [
+  ['revenue', 'son retour est ce que l affaire doit faire decouvrir, pas ce qu elle annonce'],
+  ['revenir', 'son retour est ce que l affaire doit faire decouvrir, pas ce qu elle annonce'],
+  ['repassee', 'meme raison : rien dans sa parole ne doit la ramener sur place'],
+  ['poele', 'personne ne lui en a parle'],
+  ['cendres', 'personne ne lui en a parle'],
+  ['document', 'elle ignore jusqu a l existence du releve'],
+  ['releve', 'elle ignore jusqu a l existence du releve'],
+  ['arsenic', 'aucun temoin ne nomme un produit a ce stade'],
+  ['poison', 'aucun temoin ne nomme un produit a ce stade'],
+  ['innocente', 'se defendre d un soupcon que personne n a formule, c est l avouer'],
+];
+
+for (const [mot, raison] of interditsRosa) {
+  test(`Rosa ne dit jamais « ${mot} » : ${raison}`, () => {
+    assert.equal(paroles('rosa').includes(mot), false);
+  });
+}
+
+test('Rosa ne ment qu une fois, et sur l heure', () => {
+  const siennes = dernierService.statements.filter((s) => s.speaker === 'rosa');
+  const faux = siennes.filter((s) => s.truth === 'false');
+
+  /* Deux ecarts seulement : l'heure de son depart et la raison qu'elle
+     donne d'avoir renvoye le petit. Tout le reste est vrai -- c'est ce
+     qui rend les deux invisibles. */
+  assert.deepEqual(
+    faux.map((s) => s.id).sort(),
+    ['rosa_nino_renvoye', 'rosa_rentree'],
+  );
+  assert.equal(siennes.length > faux.length * 2, true, 'elle dit surtout la verite');
+});
+
+test('le premier entretien de Rosa ne la designe jamais', () => {
+  /* Aucune de ses questions n'est de la categorie « pression » : a ce
+     stade, le joueur n'a rien a lui opposer, et une question de
+     pression posee sans piece est une accusation gratuite. */
+  const siennes = dernierService.topics.filter((t) => t.speaker === 'rosa');
+  assert.equal(siennes.length > 0, true);
+  for (const topic of siennes) {
+    assert.notEqual(topic.category, 'pression', `${topic.id} : trop tot pour presser Rosa`);
+  }
+
+  /* Et son humeur ne bouge pas : aucun effet setMood. Une humeur qui
+     se degrade au premier entretien serait un aveu de mise en scene. */
+  for (const topic of siennes) {
+    assert.equal(topic.effects?.setMood, undefined, `${topic.id} : son humeur ne doit pas bouger`);
+  }
 });
 
 test('les trois indices sont ranges sous un lieu', () => {

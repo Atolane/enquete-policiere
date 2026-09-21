@@ -42,6 +42,7 @@ const VERRE = { x: -4.5, y: 0.83, z: 3.5 };
 const NINO = { x: -3.2, y: 1.35, z: -0.2 };
 const ENZO = { x: 3.2, y: 1.35, z: -0.2 };
 const REGISTRE = { x: 3.5, y: 1.43, z: -2.45 };
+const ROSA = { x: 0, y: 1.35, z: -3.6 };
 
 let ok = 0;
 let ko = 0;
@@ -110,6 +111,52 @@ const viser = async (o, passes = 3) => {
   }
   await page.waitForTimeout(250);
 };
+/**
+ * Vise, et insiste si le viseur ne repond pas.
+ *
+ * « allerVers » s'arrete des qu'il est ASSEZ pres, ce qui va de la
+ * distance d'arret a zero selon la marche du dernier pas. Trop pres
+ * d'un personnage, le rayon passe au-dessus de son epaule et le viseur
+ * reste muet. Un pas en arriere, un pas de cote, et il repond. Un
+ * joueur fait cela sans y penser ; un test doit l'ecrire.
+ */
+const viserJusqua = async (o, motif, essais = 5) => {
+  let vu = '';
+  for (let i = 0; i < essais; i += 1) {
+    await viser(o);
+    vu = await page.textContent('#prompt-line');
+    if (motif.test(vu)) return vu;
+    const touche = i % 2 === 0 ? 'KeyS' : 'KeyD';
+    await page.keyboard.down(touche);
+    await page.waitForTimeout(200);
+    await page.keyboard.up(touche);
+    await page.waitForTimeout(150);
+  }
+  return vu;
+};
+
+/**
+ * Attend qu'un entretien soit REELLEMENT ouvert sur la bonne personne.
+ *
+ * Le panneau garde le nom du precedent interlocuteur une fois referme.
+ * Lire « .dialogue-name » sans verifier que le panneau est visible,
+ * c'est prendre le souvenir du dernier entretien pour le suivant --
+ * et c'est exactement ce qu'un echec intermittent a montre.
+ */
+const attendreEntretien = async (nom, max = 14) => {
+  let vu = { ouvert: false, nom: '', role: '' };
+  for (let i = 0; i < max; i += 1) {
+    vu = await page.evaluate(() => ({
+      ouvert: !document.querySelector('#dialogue-panel')?.classList.contains('is-hidden'),
+      nom: document.querySelector('.dialogue-name')?.textContent ?? '',
+      role: document.querySelector('.dialogue-role')?.textContent ?? '',
+    }));
+    if (vu.ouvert && vu.nom.includes(nom)) return vu;
+    await page.waitForTimeout(250);
+  }
+  return vu;
+};
+
 /** Avance en ligne droite. Renvoie vrai si la cible a ete atteinte. */
 const allerVers = async (o, arret, maxMs = 14000) => {
   const t0 = Date.now();
@@ -203,9 +250,7 @@ await trajet('jusqu au verre', [
   { x: -2.0, z: 3.7 },
   { x: -3.4, z: 3.5 },
 ]);
-await viser(VERRE);
-
-const invite = await page.textContent('#prompt-line');
+const invite = await viserJusqua(VERRE, /Examiner le verre/);
 check('le viseur annonce le verre', /Examiner le verre/.test(invite), `"${invite}"`);
 
 await page.mouse.click(500, 280);
@@ -226,19 +271,12 @@ await trajet('jusqu a Nino', [
   { x: 0, z: 0.4 },
   { x: -2.4, z: -0.2, arret: 0.6 },
 ]);
-await viser(NINO);
-
-const invite2 = await page.textContent('#prompt-line');
+const invite2 = await viserJusqua(NINO, /Interroger Nino Restivo/);
 check('le viseur annonce Nino Restivo', /Interroger Nino Restivo/.test(invite2), `"${invite2}"`);
 
 await page.mouse.click(500, 280);
-await page.waitForTimeout(700);
-
-const entete = await page.evaluate(() => ({
-  nom: document.querySelector('.dialogue-name')?.textContent ?? '',
-  role: document.querySelector('.dialogue-role')?.textContent ?? '',
-}));
-check('l entretien s ouvre sur Nino Restivo', entete.nom.includes('Nino Restivo'), entete.nom);
+const entete = await attendreEntretien('Nino Restivo');
+check('l entretien s ouvre sur Nino Restivo', entete.ouvert && entete.nom.includes('Nino Restivo'), entete.nom);
 check('sa qualite est affichee', /commis/i.test(entete.role), entete.role);
 
 const avant = await choix();
@@ -256,6 +294,14 @@ check(
   JSON.stringify(apres.map((o) => o.texte)),
 );
 
+/* On la pose : sa reponse etablit que Rosa a renvoye le petit, et
+   c'est ce fait -- pas une humeur, pas un soupcon -- qui ouvrira une
+   question chez Rosa, trois pieces plus loin. C'est le premier lien
+   entre deux temoins que le jeu met reellement a l'epreuve. */
+await page.click('.dialogue-choice[data-topic="nino_pourquoi_tot"]');
+await page.waitForTimeout(350);
+check('il dit pourquoi il est parti tot', await lire());
+
 // --- 3. Le registre ----------------------------------------------------
 
 await page.keyboard.press('Escape');
@@ -268,9 +314,7 @@ await trajet('jusqu au registre', [
   { x: 0, z: -1.8, arret: 0.6 },
   { x: 2.3, z: -2.3, arret: 0.6 },
 ]);
-await viser(REGISTRE);
-
-const invite3 = await page.textContent('#prompt-line');
+const invite3 = await viserJusqua(REGISTRE, /Examiner le registre/);
 check('le viseur annonce le registre', /Examiner le registre/.test(invite3), `"${invite3}"`);
 await page.mouse.click(500, 280);
 await page.waitForTimeout(400);
@@ -281,8 +325,7 @@ await page.mouse.click(500, 280);
 await page.waitForTimeout(300);
 
 /* Deux objets sur la meme caisse : le viseur doit les distinguer. */
-await viser({ x: 3.5, y: 1.41, z: -2.0 });
-const invite3b = await page.textContent('#prompt-line');
+const invite3b = await viserJusqua({ x: 3.5, y: 1.41, z: -2.0 }, /Examiner les livres/);
 check('les livres voisins restent un autre objet', /Examiner les livres/.test(invite3b), `"${invite3b}"`);
 
 // --- 4. Enzo, et la version qu il doit reprendre ------------------------
@@ -291,15 +334,11 @@ await trajet('jusqu a Enzo', [
   { x: 4.4, z: -0.4, arret: 0.6 },
   { ...ENZO, arret: 1.7 },
 ]);
-await viser(ENZO);
-
-const invite4 = await page.textContent('#prompt-line');
+const invite4 = await viserJusqua(ENZO, /Interroger Enzo Carbone/);
 check('le viseur annonce Enzo Carbone', /Interroger Enzo Carbone/.test(invite4), `"${invite4}"`);
 await page.mouse.click(500, 280);
-await page.waitForTimeout(700);
-
-const enteteEnzo = await page.evaluate(() => document.querySelector('.dialogue-name')?.textContent ?? '');
-check('l entretien s ouvre sur Enzo Carbone', enteteEnzo.includes('Enzo Carbone'), enteteEnzo);
+const enteteEnzo = await attendreEntretien('Enzo Carbone');
+check('l entretien s ouvre sur Enzo Carbone', enteteEnzo.ouvert && enteteEnzo.nom.includes('Enzo Carbone'), enteteEnzo.nom);
 
 // Il invoque une livraison.
 await page.click('.dialogue-choice[data-topic="enzo_matin"]');
@@ -334,7 +373,82 @@ await page.click('.dialogue-choice[data-topic="enzo_matin_reprise"]');
 await page.waitForTimeout(350);
 check('la reprise se joue jusqu au bout', await lire());
 
-// --- 5. Le carnet ------------------------------------------------------
+// --- 5. Rosa Vitale ----------------------------------------------------
+
+await page.keyboard.press('Escape');
+await page.waitForTimeout(400);
+check('le joueur reprend la main en quittant Enzo', await reprendreLaMain());
+
+/* On contourne la grande caisse par le sud : en ligne droite, le
+   trajet depuis Enzo en accroche l'angle. */
+await trajet('jusqu a Rosa', [
+  { x: 2.4, z: -0.8, arret: 0.6 },
+  { x: 0.4, z: -2.0, arret: 0.6 },
+  { ...ROSA, arret: 1.7 },
+]);
+const invite5 = await viserJusqua(ROSA, /Interroger Rosa Vitale/);
+check('le viseur annonce Rosa Vitale', /Interroger Rosa Vitale/.test(invite5), `"${invite5}"`);
+await page.mouse.click(500, 280);
+const enteteRosa = await attendreEntretien('Rosa Vitale');
+check('l entretien s ouvre sur Rosa Vitale', enteteRosa.ouvert && enteteRosa.nom.includes('Rosa Vitale'), enteteRosa.nom);
+check('sa qualite est affichee', /salle/i.test(enteteRosa.role), enteteRosa.role);
+
+const rosaAvant = await choix();
+check(
+  'la question sur le depart n est pas encore la',
+  !rosaAvant.some((o) => o.topic === 'rosa_depart'),
+  JSON.stringify(rosaAvant.map((o) => o.texte)),
+);
+check(
+  'la question ouverte par Nino lui est bien posable',
+  rosaAvant.some((o) => o.topic === 'rosa_nino'),
+  JSON.stringify(rosaAvant.map((o) => o.texte)),
+);
+
+await page.click('.dialogue-choice[data-topic="rosa_fermeture"]');
+await page.waitForTimeout(350);
+check('elle repond sur la fermeture', await lire());
+
+const rosaApres = await choix();
+check(
+  'avoir ferme ouvre la question de l heure',
+  rosaApres.some((o) => o.topic === 'rosa_depart'),
+  JSON.stringify(rosaApres.map((o) => o.texte)),
+);
+check(
+  'aucune question de pression ne lui est proposee',
+  rosaApres.every((o) => !/pression/i.test(o.texte)),
+  JSON.stringify(rosaApres.map((o) => o.texte)),
+);
+
+await page.click('.dialogue-choice[data-topic="rosa_depart"]');
+await page.waitForTimeout(350);
+check('elle donne son heure', await lire());
+
+/* Le verre sous les yeux : elle ne se derobe pas, et rien ne bouge
+   pour autant. C'est tout l'interet de la tranche. */
+await page.click('#dialogue-present');
+await page.waitForTimeout(400);
+const piecesRosa = await page.evaluate(() =>
+  [...document.querySelectorAll('.dialogue-choice')].map((e) => e.dataset.evidence ?? ''),
+);
+check(
+  'le verre figure parmi les pieces presentables',
+  piecesRosa.includes('clue:verre_renverse'),
+  JSON.stringify(piecesRosa),
+);
+await page.click('.dialogue-choice[data-evidence="clue:verre_renverse"]');
+await page.waitForTimeout(400);
+check('elle reagit au verre', await lire());
+
+const rosaFin = await choix();
+check(
+  'le verre ne lui ouvre aucune question nouvelle',
+  rosaFin.length === rosaApres.length - 1,
+  `avant ${rosaApres.length}, apres ${rosaFin.length}`,
+);
+
+// --- 6. Le carnet ------------------------------------------------------
 
 await page.keyboard.press('Escape');
 await page.waitForTimeout(400);
@@ -354,7 +468,11 @@ check('Enzo a sa propre section', /Enzo Carbone/.test(carnet.texte));
 check('sa premiere version y est', /une livraison/.test(carnet.texte));
 check('sa reprise y est aussi', /tromp.* de jour/i.test(carnet.texte));
 check('mais le carnet ne dit jamais laquelle etait fausse', !/faux|fausse|mensonge|contradiction/i.test(carnet.texte));
-check('aucun identifiant technique a l ecran', !/nino_|enzo_|fait_|registre_livraisons/.test(carnet.texte));
+check('Rosa a sa propre section', /Rosa Vitale/.test(carnet.texte));
+check('ce qu elle dit du verre y figure', /anisette/i.test(carnet.texte));
+check('l heure qu elle donne y figure', /onze heures/.test(carnet.texte));
+check('le carnet ne juge pas non plus ce qu elle dit', !/douteux|suspect|invraisemblable/i.test(carnet.texte));
+check('aucun identifiant technique a l ecran', !/nino_|enzo_|rosa_|fait_|registre_livraisons/.test(carnet.texte));
 
 check('aucune erreur de console', erreurs.length === 0, erreurs.join(' | '));
 

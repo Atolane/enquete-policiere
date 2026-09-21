@@ -128,12 +128,15 @@ export class Game {
   constructor(canvas: HTMLCanvasElement) {
     /* ?personnages=N regle le nombre de mannequins (0 a 8). Sert a mesurer
        leur cout sur sa propre machine : 0 donne la reference sans aucun
-       personnage. Absent, la valeur par defaut est 2. */
+       personnage. Absent, on en place autant qu'il y a de temoins dans
+       l'affaire -- un nombre ecrit a la main ici laisserait le prochain
+       temoin hors de la scene sans que rien ne le signale. */
+    const parDefaut = TestRoomScene.temoinCount();
     const param = new URLSearchParams(window.location.search).get('personnages');
-    const requested = param === null ? 2 : Number(param);
+    const requested = param === null ? parDefaut : Number(param);
     this.characterCount = Number.isFinite(requested)
       ? Math.min(Math.max(Math.trunc(requested), 0), 8)
-      : 2;
+      : parDefaut;
 
     /* ?etat=1 affiche le releve de l'etat de l'enquete : un instrument de
        controle, pas le carnet (voir ui/StateReport.ts). Absent, il n'est

@@ -419,11 +419,16 @@ export class TestRoomScene {
        masqueraient les personnages. Les deux premiers sont separes de plus
        de 6 m et tournes vers l'entree : un personnage qui vous tourne le
        dos ne peut pas vous suivre des yeux, ce qui rendrait la phase
-       intestable. Les suivants ne servent qu'aux mesures de performance
-       (?personnages=N). */
+       intestable. Les trois premiers portent un temoin (voir TEMOINS) ;
+       au-dela, ce sont des mannequins de mesure (?personnages=N). */
     { pos: [-3.2, 0, -0.2], yaw: 1.08, tint: 0xffffff, label: 'Mannequin A' },
     { pos: [3.2, 0, -0.2], yaw: -1.08, tint: 0xd6a97a, label: 'Mannequin B' },
-    { pos: [-1.6, 0, -0.6], yaw: 0.5, tint: 0x9fb4c8, label: 'Mannequin C' },
+    /* Le troisieme emplacement a ete recule en Phase 9 (tranche 3) :
+       il porte maintenant un temoin, et non plus un mannequin de
+       mesure. A (-1,6 ; -0,6) il touchait presque le premier, et le
+       viseur hesitait entre les deux. Au fond de la piece, face a
+       l'entree, il est degage de tous les cotes. */
+    { pos: [0, 0, -3.6], yaw: Math.PI, tint: 0x9fb4c8, label: 'Mannequin C' },
     { pos: [1.6, 0, -0.6], yaw: -0.5, tint: 0xc0c0a8, label: 'Mannequin D' },
     { pos: [-4.6, 0, 0.6], yaw: 1.3, tint: 0xbba0c4, label: 'Mannequin E' },
     { pos: [4.6, 0, 0.6], yaw: -1.3, tint: 0xa8c4a0, label: 'Mannequin F' },
@@ -433,9 +438,18 @@ export class TestRoomScene {
 
   /* Qui incarne qui, dans l'ordre des emplacements ci-dessus. Un
      emplacement sans temoin reste un mannequin de mesure. */
+  /* Combien de personnages la piece place par defaut : exactement le
+     nombre de temoins. Game s'en sert au lieu d'un 2 ecrit a la main,
+     qui avait deja laisse un temoin hors de la scene le jour ou il est
+     entre dans l'affaire. */
+  static temoinCount(): number {
+    return TestRoomScene.TEMOINS.length;
+  }
+
   private static readonly TEMOINS: Array<{ id: string; nom: string }> = [
     { id: 'nino', nom: 'Nino Restivo' },
     { id: 'enzo', nom: 'Enzo Carbone' },
+    { id: 'rosa', nom: 'Rosa Vitale' },
   ];
 
   private async loadCharacters(models: ModelLibrary, count: number): Promise<void> {

@@ -1,22 +1,28 @@
 /* ===================================================================
    src/data/cases/dernier-service.ts
 
-   « LE DERNIER SERVICE » -- l'affaire, premiere tranche.
+   « LE DERNIER SERVICE » -- l'affaire, tranches 1 a 3.
 
    Boston, samedi 13 novembre 1948. Victor Bellini, comptable, a ete
    trouve mort a son bureau au petit matin. L'inspecteur arrive.
 
    -------------------------------------------------------------------
-   CE QUE CETTE TRANCHE CONTIENT, ET POURQUOI SI PEU
+   CE QUE CE FICHIER CONTIENT AUJOURD'HUI
    -------------------------------------------------------------------
-   Un seul temoin : Nino Restivo, commis de cuisine, dix-neuf ans. Trois
-   indices du bureau. C'est volontairement court -- l'affaire complete
-   compte cinq personnages et une vingtaine d'indices, et la construire
-   d'un bloc reviendrait a decouvrir toutes ses fautes en meme temps.
+   Trois temoins, construits l'un apres l'autre :
 
-   Nino d'abord parce qu'il est le plus simple et le plus utile : il ne
-   ment que sur une chose sans importance, et il livre trois
-   renseignements dont l'enquete ne peut pas se passer.
+     Nino Restivo, commis, dix-neuf ans. Il ne ment que sur une chose
+     sans importance, et il livre trois renseignements dont l'enquete
+     ne peut pas se passer.
+
+     Enzo Carbone, gerant. Il ne cede pas, il ajuste : confronte au
+     registre, il ne retire pas sa premiere version, il en donne une
+     seconde. Le carnet garde les deux.
+
+     Rosa Vitale, chef de salle. Elle repond a tout, poliment. C'est
+     elle qui a ferme, elle qui a renvoye le petit, elle qui portait
+     l'anisette -- et rien de ce qu'elle dit ici ne permet encore de
+     l'inquieter. C'est exactement ce qu'on attend d'elle a ce stade.
 
    -------------------------------------------------------------------
    LA REGLE QUI GOUVERNE CHAQUE MOT ECRIT ICI
@@ -35,12 +41,17 @@
    nommait la mort-aux-rats, le joueur obtiendrait de lui, d'un seul
    coup, ce que l'affaire lui demande de construire en trois etapes.
 
+   La meme regle, retournee, gouverne Rosa : elle ne dit que ce qu'une
+   femme irreprochable dirait. Un temoin qui se trahirait au premier
+   entretien ne serait pas un suspect, seulement un decor.
+
    -------------------------------------------------------------------
    CE QUI N'EST PAS ENCORE LA
    -------------------------------------------------------------------
-   Enzo, Rosa, Aldo, l'agent Doyle. Le laboratoire. La cave. La
-   conclusion. Les decors reels -- les licences d'assets ne sont pas
-   reglees, et rien n'entrera dans public/ avant qu'elles le soient.
+   Aldo Maglione, l'agent Doyle. Le laboratoire. La cave. Ce que Rosa
+   a reellement fait de sa nuit. La conclusion. Les decors reels -- les
+   licences d'assets ne sont pas reglees, et rien n'entrera dans
+   public/ avant qu'elles le soient.
    =================================================================== */
 
 import type { CaseData } from '../types';
@@ -58,6 +69,20 @@ export const dernierService: CaseData = {
          reaction a ce que le joueur ferait. */
       defaultReaction: [
         { speaker: 'nino', text: 'Ça… je sais pas ce que c’est, monsieur.', beat: 'dismiss' },
+      ],
+    },
+    {
+      id: 'rosa',
+      name: 'Rosa Vitale',
+      role: 'Chef de salle',
+      /* Elle commence NEUTRE, et c'est le plus inquietant des trois.
+         Nino a peur, Enzo se ferme ; Rosa repond. Poliment, sans se
+         derober, avec la fatigue de quelqu'un qui a servi jusqu'a onze
+         heures du soir. Rien dans son humeur ne la designe, et c'est
+         voulu : le joueur doit pouvoir la croire. */
+      initialMood: 'neutral',
+      defaultReaction: [
+        { speaker: 'rosa', text: 'Je l’ai vu cent fois. Je ne sais pas quoi vous en dire.' },
       ],
     },
     {
@@ -164,6 +189,20 @@ export const dernierService: CaseData = {
       topic: 'Les comptes',
     },
     {
+      id: 'fait_rosa_a_ferme',
+      text: 'Rosa Vitale a fermé le restaurant seule, le soir du 12.',
+      topic: 'La nuit du 12',
+    },
+    {
+      /* Une HABITUDE, pas la soiree du 12. Elle dit ce qui se passait
+         les soirs ou Victor restait tard -- elle ne dit pas ce qui
+         s'est passe celui-la. La difference est tout ce qui separe un
+         renseignement d'une revelation. */
+      id: 'fait_verre_servi',
+      text: 'Un verre d’anisette était porté à Victor Bellini les soirs où il restait tard.',
+      topic: 'La nuit du 12',
+    },
+    {
       id: 'fait_aldo_tient_les_comptes',
       text: 'Les comptes sont tenus par Aldo Maglione, le neveu du patron, depuis le printemps.',
       topic: 'Les comptes',
@@ -221,6 +260,56 @@ export const dernierService: CaseData = {
         'Le poêle, je l’ai vidé jeudi. Ce matin il était plein de cendres. Personne ' +
         'l’allume en novembre, on a le fourneau.',
       topic: 'La maison',
+      truth: 'true',
+    },
+
+    // --- Rosa ---------------------------------------------------------
+    {
+      id: 'rosa_soiree',
+      speaker: 'rosa',
+      text: 'Un samedi. Salle pleine jusqu’à dix heures et demie, puis le calme.',
+      topic: 'Emploi du temps',
+      truth: 'true',
+    },
+    {
+      id: 'rosa_fermeture',
+      speaker: 'rosa',
+      text: 'C’est moi qui ai fermé. J’ai éteint la salle et j’ai tiré le rideau.',
+      topic: 'Emploi du temps',
+      truth: 'true',
+    },
+    {
+      /* CE QU'ELLE DIT DE SON DEPART. Le champ truth sert au moteur et
+         a personne d'autre : rien a l'ecran, rien dans le carnet, rien
+         dans le ton de la replique ne permet de le lire. Le joueur ne
+         pourra revenir ici que bien plus tard, et par un autre chemin
+         que sa parole. */
+      id: 'rosa_rentree',
+      speaker: 'rosa',
+      text: 'Je suis rentrée vers onze heures. À pied, c’est à dix minutes.',
+      topic: 'Emploi du temps',
+      claimedTime: '23:00',
+      truth: 'false',
+    },
+    {
+      id: 'rosa_nino_renvoye',
+      speaker: 'rosa',
+      text: 'Le petit tombait de sommeil. Je lui ai dit de filer, j’ai fait sa plonge.',
+      topic: 'Les gens',
+      truth: 'false',
+    },
+    {
+      id: 'rosa_victor',
+      speaker: 'rosa',
+      text: 'Onze ans qu’il venait. Toujours la même table, toujours le même bonsoir.',
+      topic: 'Les gens',
+      truth: 'true',
+    },
+    {
+      id: 'rosa_anisette',
+      speaker: 'rosa',
+      text: 'Une anisette. Il en prenait une quand il restait tard. C’est moi qui la lui portais.',
+      topic: 'La nuit du 12',
       truth: 'true',
     },
 
@@ -417,6 +506,87 @@ export const dernierService: CaseData = {
       effects: { revealFacts: ['fait_cendres'] },
     },
 
+    // --- Rosa ---------------------------------------------------------
+    {
+      id: 'rosa_relance',
+      speaker: 'rosa',
+      question: 'Autre chose ?',
+      category: 'ouverture',
+      once: false,
+      lines: [
+        { speaker: 'detective', text: 'Autre chose qui vous revient ?' },
+        { speaker: 'rosa', text: 'Demandez, je répondrai. Je n’ai rien à ajouter de moi-même.' },
+      ],
+    },
+    {
+      id: 'rosa_soiree',
+      speaker: 'rosa',
+      question: 'Racontez-moi votre soirée.',
+      category: 'ouverture',
+      lines: [
+        { speaker: 'detective', text: 'Racontez-moi votre soirée d’hier.' },
+        { speaker: 'rosa', text: 'Un samedi. Salle pleine jusqu’à dix heures et demie.' },
+        { speaker: 'rosa', text: 'Puis le calme. On range, on compte, on éteint.', beat: 'think' },
+      ],
+      records: ['rosa_soiree'],
+    },
+    {
+      id: 'rosa_fermeture',
+      speaker: 'rosa',
+      question: 'Qui a fermé le restaurant ?',
+      category: 'emploi du temps',
+      lines: [
+        { speaker: 'detective', text: 'Qui a fermé, ce soir-là ?' },
+        { speaker: 'rosa', text: 'Moi. J’ai éteint la salle et j’ai tiré le rideau.' },
+      ],
+      records: ['rosa_fermeture'],
+      effects: { revealFacts: ['fait_rosa_a_ferme'], unlockTopics: ['rosa_depart'] },
+    },
+    {
+      /* Masquee jusqu'a ce qu'elle ait dit avoir ferme. On ne demande
+         pas a quelqu'un a quelle heure il est parti tant qu'on ignore
+         qu'il etait le dernier. */
+      id: 'rosa_depart',
+      speaker: 'rosa',
+      question: 'Et vous êtes partie à quelle heure ?',
+      category: 'emploi du temps',
+      hidden: true,
+      lines: [
+        { speaker: 'detective', text: 'Vous étiez donc la dernière. Partie à quelle heure ?' },
+        { speaker: 'rosa', text: 'Vers onze heures.', pause: 0.4 },
+        { speaker: 'rosa', text: 'À pied. C’est à dix minutes, j’habite derrière l’église.' },
+      ],
+      records: ['rosa_rentree'],
+    },
+    {
+      /* Conditionnee au fait que Nino a livre. Sans lui, le joueur n'a
+         aucune raison de savoir que le petit est parti en avance --
+         et la question n'aurait pas de sens. */
+      id: 'rosa_nino',
+      speaker: 'rosa',
+      question: 'Vous avez renvoyé Nino plus tôt.',
+      category: 'les faits',
+      requires: { facts: ['fait_rosa_a_renvoye_nino'] },
+      lines: [
+        { speaker: 'detective', text: 'Vous avez renvoyé le petit avant l’heure.' },
+        { speaker: 'rosa', text: 'Il tombait de sommeil. Il a dix-neuf ans et il fait des journées d’homme.' },
+        { speaker: 'rosa', text: 'Je lui ai dit de filer. J’ai fait sa plonge.', beat: 'dismiss' },
+      ],
+      records: ['rosa_nino_renvoye'],
+    },
+    {
+      id: 'rosa_victor',
+      speaker: 'rosa',
+      question: 'Parlez-moi de Victor Bellini.',
+      category: 'les gens',
+      lines: [
+        { speaker: 'detective', text: 'Victor Bellini. Vous le connaissiez ?' },
+        { speaker: 'rosa', text: 'Onze ans qu’il venait. Toujours la même table.' },
+        { speaker: 'rosa', text: 'Toujours le même bonsoir. Ça devient rare.', beat: 'think', pause: 0.6 },
+      ],
+      records: ['rosa_victor'],
+    },
+
     // --- Enzo ---------------------------------------------------------
     {
       id: 'enzo_relance',
@@ -525,6 +695,26 @@ export const dernierService: CaseData = {
 
   // --- Ce qu'il dit devant un objet -----------------------------------
   reactions: [
+    {
+      /* LE VERRE PRESENTE A ROSA.
+         Elle ne se derobe pas : elle reconnait l'avoir porte. C'est un
+         renseignement reel -- le joueur apprend d'ou vient le verre --
+         et ce n'est pas un aveu : porter une anisette a un habitue qui
+         travaille tard est une politesse, pas un geste.
+
+         Elle parle d'une HABITUDE, jamais de cette nuit-la. Le jour ou
+         le joueur pourra la ramener au 12 novembre, ce ne sera pas
+         parce qu'elle l'aura dit ici. */
+      character: 'rosa',
+      clue: 'verre_renverse',
+      lines: [
+        { speaker: 'detective', text: 'Ce verre, sur son bureau.' },
+        { speaker: 'rosa', text: 'Une anisette. Il en prenait une quand il restait tard.' },
+        { speaker: 'rosa', text: 'C’est moi qui la lui portais.', pause: 0.5 },
+      ],
+      records: ['rosa_anisette'],
+      effects: { revealFacts: ['fait_verre_servi'] },
+    },
     {
       character: 'nino',
       clue: 'livres_comptes',

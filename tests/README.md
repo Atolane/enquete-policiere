@@ -35,7 +35,7 @@ Ce répertoire corrige cela pour la partie qui peut l'être tout de suite.
 
 ### `unit/` — le socle
 
-Cinq suites, sans navigateur, sans serveur, sans dépendance :
+Cinq suites, sans navigateur, sans serveur, sans dépendance. **109 tests, 0 échec.**
 
 | Fichier | Ce qu'il couvre |
 | --- | --- |
@@ -43,7 +43,7 @@ Cinq suites, sans navigateur, sans serveur, sans dépendance :
 | `etat.test.ts` | `GameState` : pas de doublon, humeurs, abonnés prévenus une seule fois |
 | `carnet.test.ts` | `Casebook` : regroupement, changements de version, repli « Sans rubrique » |
 | `sauvegarde.test.ts` | `parseSave` : défauts de forme contre identifiants disparus |
-| `affaire.test.ts` | « Le dernier service » : le validateur, la taille de la tranche, la reprise d'Enzo, et les mots qu'un témoin ne peut pas prononcer |
+| `affaire.test.ts` | « Le dernier service » : le validateur, la taille de la tranche, la reprise d'Enzo, la retenue de Rosa, et les mots qu'un témoin ne peut pas prononcer |
 
 Les modules testés n'importent ni Three.js ni le DOM, ce qui est précisément la raison pour
 laquelle ils sont testables ainsi.
@@ -51,16 +51,21 @@ laquelle ils sont testables ainsi.
 ### `browser/` — une suite à jour, huit héritées
 
 `affaire.mjs` vise **l'affaire réelle** et a été écrite *et rejouée* au moment de son versement :
-**35 contrôles, 0 échec**, deux exécutions de suite. C'est le scénario de référence pour la
-Phase 9. Elle couvre les deux tranches : le verre renversé et Nino Restivo, puis le registre
-des livraisons, Enzo Carbone et la version qu'il doit reprendre.
+**54 contrôles, 0 échec**, deux exécutions de suite. C'est le scénario de référence pour la
+Phase 9. Elle couvre les trois tranches en un seul parcours : le verre renversé et Nino
+Restivo ; le registre des livraisons, Enzo Carbone et la version qu'il doit reprendre ; puis
+Rosa Vitale, son premier entretien et le verre qu'on lui présente.
 
-Elle contient aussi les trois pièges de pilotage que la tranche 2 a mis au jour, et dont
-chacun est commenté sur place : les trajets contournent le passage étroit, l'appareil de
-presse et la grande caisse ; un `Escape` rend la souris, qu'il faut reprendre d'un clic sous
-peine de voir le joueur marcher tout droit sans pouvoir tourner ; et « lire » attend d'abord
-que la liste des questions *disparaisse*, faute de quoi l'entretien semble fini avant d'avoir
-commencé.
+Elle contient aussi les **cinq pièges de pilotage** que les tranches 2 et 3 ont mis au jour,
+chacun commenté sur place :
+
+| Piège | Ce qu'il donnait | La parade |
+| --- | --- | --- |
+| Les trajets ne contournent rien | le joueur restait coincé et visait par-dessus une cloison | des points de passage explicites, et `allerVers` annonce s'il est arrivé |
+| `Escape` rend la souris | le joueur avançait tout droit sans pouvoir tourner | `reprendreLaMain()` : un clic, après le délai que Chrome impose |
+| La liste des questions survit au clic | l'entretien semblait fini avant d'avoir commencé | « lire » attend d'abord qu'elle *disparaisse* |
+| Trop près d'un personnage, le rayon passe au-dessus de l'épaule | le viseur restait muet, au hasard des runs | `viserJusqua()` : un pas en arrière, un pas de côté, on réessaie |
+| Le panneau garde le nom du précédent interlocuteur | on prenait le souvenir du dernier entretien pour le suivant | `attendreEntretien()` : le panneau doit être *visible* et porter le bon nom |
 
 Les huit autres pilotent le jeu dans un vrai navigateur. Elles couvrent ce qu'aucun test
 unitaire ne peut atteindre : le clavier, le pointeur, le rendu, la persistance réelle.
