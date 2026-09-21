@@ -5,24 +5,45 @@
    l'examiner, aller voir un temoin, lui poser une question, lui poser
    une piece sous le nez, ouvrir le carnet.
 
-   Tranche 1 : le verre renverse, Nino Restivo, une question qui
-   s'ouvre.
-   Tranche 2 : le registre des livraisons, Enzo Carbone, et la premiere
-   version qu'un temoin doit reprendre.
+   CE QUE LE PARCOURS TRAVERSE (Phase 9, tranches 1 a 7)
+     1. le verre renverse, Nino Restivo, une question qui s'ouvre ;
+     2. le registre des livraisons, Enzo Carbone, et la premiere
+        version qu'un temoin doit reprendre ;
+     3. Rosa Vitale, au fond de la piece, et le verre qu'on lui
+        presente ;
+     4. Aldo Maglione, contre le mur est : ses jours de livraison, qui
+        ne sont pas ceux d'Enzo, et la glace qu'il explique ;
+     5. la bouteille au pied de la table, l'agent Doyle pres de
+        l'entree, et le premier resultat de laboratoire ;
+     6. le local arriere, la trace sur l'etagere haute, et la
+        contre-epreuve -- qui exige DEUX choses, le premier resultat et
+        le prelevement rapporte. Le parcours verifie le blocage autant
+        que le deblocage, et rouvre deux fois l'entretien de Doyle ;
+     7. quatre questions de plus chez Rosa et Aldo, chacune ouverte par
+        ce qu'un autre temoin a dit ailleurs. Le parcours suit la plus
+        longue chaine de l'affaire : le verre presente a Rosa lui ouvre
+        une question, dont la reponse en ouvre une chez Aldo.
+
+   (Cette liste est restee bloquee a la tranche 2 jusqu'a la tranche 7 :
+   un remplacement de texte qui ne trouvait pas son ancre, et qui ne
+   disait rien. Les controles, eux, ont toujours ete a jour -- seul ce
+   commentaire mentait.)
 
    NAVIGATION -- a lire avant de deplacer un point de passage.
    La piece n'est pas un plateau vide et « allerVers » marche tout
-   droit, sans contourner. Trois obstacles decident des trajets :
+   droit, sans contourner. Quatre obstacles decident des trajets :
      - le passage etroit (z de 1,2 a 1,8) n'a qu'une ouverture, large
        de 0,89 m, centree sur x = 0. Tout aller-retour nord-sud repasse
        donc par x = 0 ;
      - l'appareil de presse, a (-2,1 ; 2,6), ferme le couloir ouest :
        on longe le mur sud, vers z = 3,7 ;
      - la grande caisse occupe x de 2,8 a 4,2 : on s'arrete devant sa
-       face ouest, vers x = 2,3, et le registre reste a portee.
-   « allerVers » renvoie desormais s'il est arrive. Un trajet qui
-   echoue est un echec annonce, et non un controle suivant qui trouve
-   un ecran vide sans savoir pourquoi.
+       face ouest, vers x = 2,3, et le registre reste a portee ;
+     - le local arriere n'a qu'une ouverture, de z = 1,1 a z = 2,1, sur
+       sa facade a x = -4,2.
+   « allerVers » renvoie s'il est arrive. Un trajet qui echoue est un
+   echec annonce, et non un controle suivant qui trouve un ecran vide
+   sans savoir pourquoi.
 
    Prerequis :
      npm install --no-save playwright
@@ -618,6 +639,13 @@ await cliquerChoix('.dialogue-choice[data-evidence="clue:livres_comptes"]');
 await page.waitForTimeout(400);
 check('il repond sur la glace', await lire());
 
+/* Le poele, tant qu'on est chez lui : c'est Nino qui le vide, et lui
+   seul peut dire qu'il etait plein le samedi matin. Sans cette
+   reponse, on ne pourra pas en parler a Rosa tout a l'heure. */
+await cliquerChoix('.dialogue-choice[data-topic="nino_poele"]');
+await page.waitForTimeout(350);
+check('il repond sur le poele', await lire());
+
 await page.keyboard.press('Escape');
 await page.waitForTimeout(400);
 check('le joueur reprend la main en quittant Nino', await reprendreLaMain());
@@ -634,6 +662,12 @@ check('le viseur annonce Enzo Carbone', /Interroger Enzo Carbone/.test(invite4),
 await page.mouse.click(500, 280);
 const enteteEnzo = await attendreEntretien('Enzo Carbone');
 check('l entretien s ouvre sur Enzo Carbone', enteteEnzo.ouvert && enteteEnzo.nom.includes('Enzo Carbone'), enteteEnzo.nom);
+
+/* Sa version de la soiree. Elle contient « j'ai ferme » -- et Rosa
+   dit exactement la meme chose de son cote. On la lui portera. */
+await cliquerChoix('.dialogue-choice[data-topic="enzo_soiree"]');
+await page.waitForTimeout(350);
+check('il raconte sa soiree', await lire());
 
 // Il invoque une livraison.
 await cliquerChoix('.dialogue-choice[data-topic="enzo_matin"]');
@@ -748,6 +782,16 @@ check(
   rosaApres.every((o) => !/pression/i.test(o.texte)),
   JSON.stringify(rosaApres.map((o) => o.texte)),
 );
+check(
+  'la question sur les habitudes de Victor n est pas encore la',
+  !rosaApres.some((o) => o.topic === 'rosa_victor_tard'),
+  JSON.stringify(rosaApres.map((o) => o.texte)),
+);
+check(
+  'celle du poele l est, parce que Nino a parle',
+  rosaApres.some((o) => o.topic === 'rosa_poele'),
+  JSON.stringify(rosaApres.map((o) => o.texte)),
+);
 
 await cliquerChoix('.dialogue-choice[data-topic="rosa_depart"]');
 await page.waitForTimeout(350);
@@ -770,11 +814,56 @@ await page.waitForTimeout(400);
 check('elle reagit au verre', await lire());
 
 const rosaFin = await choix();
+/* Le verre qu'elle reconnait avoir porte ouvre UNE question, et une
+   seule : ce que Victor faisait si tard. Rien qui la vise -- on lui
+   demande les habitudes d'un client, pas ses propres gestes. */
 check(
-  'le verre ne lui ouvre aucune question nouvelle',
-  rosaFin.length === rosaApres.length - 1,
+  'le verre ouvre la question des habitudes de Victor',
+  rosaFin.some((o) => o.topic === 'rosa_victor_tard'),
+  JSON.stringify(rosaFin.map((o) => o.texte)),
+);
+check(
+  'et rien d autre : une question ouverte, une question consommee',
+  rosaFin.length === rosaApres.length,
   `avant ${rosaApres.length}, apres ${rosaFin.length}`,
 );
+
+await cliquerChoix('.dialogue-choice[data-topic="rosa_victor_tard"]');
+await page.waitForTimeout(350);
+const rosaVictor = await lireEnNotant();
+check('elle parle d une habitude, pas de cette nuit-la', /une fois par mois/i.test(rosaVictor), rosaVictor.slice(0, 120));
+check('elle ne place personne dans le bureau le 12', !/cette nuit|ce soir-là|le 12/i.test(rosaVictor));
+
+await cliquerChoix('.dialogue-choice[data-topic="rosa_poele"]');
+await page.waitForTimeout(350);
+const rosaPoele = await lireEnNotant();
+check('elle repond sur le poele', /fourneau/i.test(rosaPoele), rosaPoele.slice(0, 120));
+check('elle dit n avoir rien allume', /rien allumé/i.test(rosaPoele));
+check('et le jeu ne commente pas', !/faux|mensonge|contradiction/i.test(rosaPoele));
+
+/* LA VERSION D'ENZO SUR LA FERMETURE.
+   Deux personnes disent avoir ferme. Rosa fait une distinction de
+   metier, qui se defend. Aucun arbitre ne tranche. */
+await page.click('#dialogue-present');
+await page.waitForTimeout(400);
+const piecesRosa3 = await page.evaluate(() =>
+  [...document.querySelectorAll('.dialogue-choice')].map((e) => e.dataset.evidence ?? ''),
+);
+check(
+  'la version d Enzo lui est presentable',
+  piecesRosa3.includes('statement:enzo_soiree'),
+  JSON.stringify(piecesRosa3),
+);
+await cliquerChoix('.dialogue-choice[data-evidence="statement:enzo_soiree"]');
+await page.waitForTimeout(400);
+const rosaRideau = await lireEnNotant();
+check('elle repond sur le rideau', /rideau/i.test(rosaRideau), rosaRideau.slice(0, 120));
+check('elle ne traite personne de menteur', !/\bment\b|menteur|faux/i.test(rosaRideau));
+
+/* Le compte de reference, pris juste avant de presenter le bulletin :
+   deux questions ont ete posees depuis « rosaFin », et une mesure
+   prise trop tot ne mesure plus rien. */
+const avantBulletinRosa = (await choix()).length;
 
 /* LE BULLETIN PRESENTE A ROSA.
    C'est elle qui portait l'anisette : c'est la seule personne a qui
@@ -796,8 +885,8 @@ check('elle repond au chimiste', await lire());
 const rosaBulletin = await choix();
 check(
   'le bulletin ne lui ouvre aucune question non plus',
-  rosaBulletin.length === rosaFin.length,
-  `avant ${rosaFin.length}, apres ${rosaBulletin.length}`,
+  rosaBulletin.length === avantBulletinRosa,
+  `avant ${avantBulletinRosa}, apres ${rosaBulletin.length}`,
 );
 
 // --- 6. Aldo Maglione --------------------------------------------------
@@ -830,6 +919,16 @@ check(
 check(
   'la question sur la glace est la, parce que Nino a parle',
   aldoAvant.some((o) => o.topic === 'aldo_glace'),
+  JSON.stringify(aldoAvant.map((o) => o.texte)),
+);
+check(
+  'celle sur les soirs de verification aussi, parce que Rosa a parle',
+  aldoAvant.some((o) => o.topic === 'aldo_ce_soir_la'),
+  JSON.stringify(aldoAvant.map((o) => o.texte)),
+);
+check(
+  'celle du remboursement, non : il n a pas encore parle des avances',
+  !aldoAvant.some((o) => o.topic === 'aldo_remboursement'),
   JSON.stringify(aldoAvant.map((o) => o.texte)),
 );
 
@@ -877,6 +976,46 @@ check(
 await cliquerChoix('.dialogue-choice[data-topic="aldo_glace"]');
 await page.waitForTimeout(350);
 check('il explique la glace', await lire());
+
+/* Les avances, puis leur remboursement. La seconde question n'existe
+   qu'apres la premiere : on ne demande pas a quelqu'un s'il a
+   rembourse un pret dont il n'a pas encore reconnu l'existence. */
+await cliquerChoix('.dialogue-choice[data-topic="aldo_avances"]');
+await page.waitForTimeout(350);
+const aldoAvances = await lireEnNotant();
+check('il reconnait les avances', /famille/i.test(aldoAvances), aldoAvances.slice(0, 120));
+
+const aldoApresAvances = await choix();
+check(
+  'les avances reconnues ouvrent la question du remboursement',
+  aldoApresAvances.some((o) => o.topic === 'aldo_remboursement'),
+  JSON.stringify(aldoApresAvances.map((o) => o.texte)),
+);
+await cliquerChoix('.dialogue-choice[data-topic="aldo_remboursement"]');
+await page.waitForTimeout(350);
+const aldoRemb = await lireEnNotant();
+check('il repond sans se fermer', /rien réclamé/i.test(aldoRemb), aldoRemb.slice(0, 120));
+check('et le mot « dette » n est jamais prononce', !/dette/i.test(aldoRemb));
+
+await cliquerChoix('.dialogue-choice[data-topic="aldo_ce_soir_la"]');
+await page.waitForTimeout(350);
+const aldoSoirs = await lireEnNotant();
+check('il dit ignorer quels soirs', /quels soirs/i.test(aldoSoirs), aldoSoirs.slice(0, 120));
+check('rien ne le designe pour autant', !/coupable|menteur|contradiction/i.test(aldoSoirs));
+
+/* LE BULLETIN SOUS SON NEZ. Il se met a l'abri, et rien ne bouge. */
+const avantBulletin = (await choix()).length;
+await page.click('#dialogue-present');
+await page.waitForTimeout(400);
+await cliquerChoix('.dialogue-choice[data-evidence="statement:doyle_resultat_preliminaire"]');
+await page.waitForTimeout(400);
+const aldoBulletin = await lireEnNotant();
+check('il rappelle qu il ne sert pas a boire', /sers pas à boire/i.test(aldoBulletin), aldoBulletin.slice(0, 120));
+check(
+  'le bulletin ne lui ouvre aucune question',
+  (await choix()).length === avantBulletin,
+  `avant ${avantBulletin}`,
+);
 
 // --- 7. Le carnet ------------------------------------------------------
 
@@ -931,6 +1070,10 @@ check(
 );
 check('le carnet ne dit jamais « lot »', !/\blots?\b/i.test(carnet.texte));
 check('ni « concentration »', !/concentration/i.test(carnet.texte));
+check('les deux versions de la fermeture y sont', /tire le rideau/.test(carnet.texte) && /J’ai fermé/i.test(carnet.texte));
+check('ce que Rosa dit du poele y est', /rien allumé/.test(carnet.texte));
+check('ce qu Aldo dit des avances y est', /famille/.test(carnet.texte));
+check('le carnet ne tranche entre aucune des deux versions', !/en réalité|démenti|invraisemblable/i.test(carnet.texte));
 check('aucun identifiant technique a l ecran', !/nino_|enzo_|rosa_|aldo_|doyle_|fait_|registre_livraisons/.test(carnet.texte));
 
 check('aucune erreur de console', erreurs.length === 0, erreurs.join(' | '));

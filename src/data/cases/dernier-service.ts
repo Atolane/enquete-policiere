@@ -345,6 +345,15 @@ export const dernierService: CaseData = {
       topic: 'La contre-épreuve',
     },
     {
+      /* Une HABITUDE, encore. « Les soirs ou il verifiait les comptes »
+         n'est pas « le soir du 12 » : rien ici ne dit que Victor
+         travaillait cette nuit-la, et Rosa, qui le sert depuis onze
+         ans, n'a pas le droit d'en savoir davantage. */
+      id: 'fait_victor_restait_les_comptes',
+      text: 'Victor Bellini restait après la fermeture les soirs où il vérifiait les comptes.',
+      topic: 'Les comptes',
+    },
+    {
       id: 'fait_aldo_tient_les_comptes',
       text: 'Les comptes sont tenus par Aldo Maglione, le neveu du patron, depuis le printemps.',
       topic: 'Les comptes',
@@ -448,6 +457,33 @@ export const dernierService: CaseData = {
       truth: 'true',
     },
     {
+      id: 'rosa_victor_tard',
+      speaker: 'rosa',
+      text: 'Il restait, les soirs où il faisait les comptes. Une fois par mois, jusqu’à pas d’heure.',
+      topic: 'Les gens',
+      truth: 'true',
+    },
+    {
+      /* LE TROISIEME ECART DE ROSA, et le plus discret des trois.
+         Elle ne nie pas qu'il y ait eu du feu : elle dit ce qu'elle a
+         fait, et c'est eteindre. Le joueur tient d'un cote le poele
+         vide jeudi et plein le samedi matin, de l'autre une femme qui
+         a tout eteint avant de partir. Les deux phrases sont au
+         carnet, cote a cote, et rien ne les commente. */
+      id: 'rosa_rien_allume',
+      speaker: 'rosa',
+      text: 'Je n’ai rien allumé. J’ai éteint la salle, et je suis partie.',
+      topic: 'La nuit du 12',
+      truth: 'false',
+    },
+    {
+      id: 'rosa_rideau',
+      speaker: 'rosa',
+      text: 'Il fait la caisse, il part. C’est moi qui tire le rideau. Ça ne s’appelle pas fermer.',
+      topic: 'Emploi du temps',
+      truth: 'true',
+    },
+    {
       id: 'rosa_anisette',
       speaker: 'rosa',
       text: 'Une anisette. Il en prenait une quand il restait tard. C’est moi qui la lui portais.',
@@ -501,6 +537,27 @@ export const dernierService: CaseData = {
       text: 'Il vérifiait mes écritures. C’est son métier, je n’en faisais pas une affaire.',
       topic: 'Les gens',
       truth: 'false',
+    },
+    {
+      id: 'aldo_ignorait',
+      speaker: 'aldo',
+      text: 'Je savais qu’il vérifiait les comptes. Je ne savais pas quels soirs.',
+      topic: 'Les comptes',
+      truth: 'false',
+    },
+    {
+      id: 'aldo_remboursement',
+      speaker: 'aldo',
+      text: 'Mon oncle ne m’a rien réclamé. Ce n’est pas un prêt, c’est de la famille.',
+      topic: 'Les gens',
+      truth: 'partial',
+    },
+    {
+      id: 'aldo_pas_a_boire',
+      speaker: 'aldo',
+      text: 'Je tiens des livres. Je ne sers pas à boire.',
+      topic: 'Le laboratoire',
+      truth: 'true',
     },
     {
       id: 'aldo_au_centime',
@@ -957,6 +1014,41 @@ export const dernierService: CaseData = {
       records: ['aldo_glace_fond'],
     },
 
+    {
+      /* Conditionnee au verre qu'elle a reconnu avoir porte : c'est de
+         la qu'on peut lui demander ce que Victor faisait si tard. Sans
+         cela, la question tombe de nulle part. */
+      id: 'rosa_victor_tard',
+      speaker: 'rosa',
+      question: 'Il restait après la fermeture ?',
+      category: 'les gens',
+      requires: { facts: ['fait_verre_servi'] },
+      lines: [
+        { speaker: 'detective', text: 'Il lui arrivait de rester après la fermeture ?' },
+        { speaker: 'rosa', text: 'Les soirs où il faisait les comptes. Une fois par mois.' },
+        { speaker: 'rosa', text: 'Jusqu’à pas d’heure. Ça ne me regardait pas.', beat: 'dismiss' },
+      ],
+      records: ['rosa_victor_tard'],
+      effects: { revealFacts: ['fait_victor_restait_les_comptes'] },
+    },
+    {
+      /* Conditionnee au poele de Nino. On ne demande pas a quelqu'un
+         ce qu'il a brule : on lui dit qu'un poele a servi, et on
+         ecoute. La question reste de la categorie « les faits » -- a
+         ce stade, rien n'autorise a la presser. */
+      id: 'rosa_poele',
+      speaker: 'rosa',
+      question: 'Le poêle du couloir a servi.',
+      category: 'les faits',
+      requires: { facts: ['fait_cendres'] },
+      lines: [
+        { speaker: 'detective', text: 'Le poêle, dans le couloir. Il a servi cette nuit-là.' },
+        { speaker: 'rosa', text: 'En novembre ? On a le fourneau, inspecteur.', beat: 'think', pause: 0.5 },
+        { speaker: 'rosa', text: 'Je n’ai rien allumé. J’ai éteint la salle, et je suis partie.' },
+      ],
+      records: ['rosa_rien_allume'],
+    },
+
     // --- Doyle --------------------------------------------------------
     {
       id: 'doyle_relance',
@@ -1083,6 +1175,39 @@ export const dernierService: CaseData = {
       ],
       records: ['doyle_contre_epreuve'],
       effects: { revealFacts: ['fait_labo_contre_epreuve'] },
+    },
+
+    {
+      /* Conditionnee a ce que Rosa a livre. Aldo tient les ecritures :
+         savoir quels soirs le comptable venait les verifier fait
+         partie de son travail. Il dit que non. Personne ne releve. */
+      id: 'aldo_ce_soir_la',
+      speaker: 'aldo',
+      question: 'Vous saviez quand il venait vérifier ?',
+      category: 'les faits',
+      requires: { facts: ['fait_victor_restait_les_comptes'] },
+      lines: [
+        { speaker: 'detective', text: 'Il restait le soir pour vos comptes. Vous saviez quand ?' },
+        { speaker: 'aldo', text: 'Je savais qu’il le faisait. Pas quels soirs.', pause: 0.4 },
+        { speaker: 'aldo', text: 'Il venait quand il voulait. C’était son droit.' },
+      ],
+      records: ['aldo_ignorait'],
+    },
+    {
+      /* Elle ne s'ouvre qu'apres qu'il a parle des avances lui-meme.
+         On ne demande pas a quelqu'un s'il a rembourse un pret dont il
+         n'a pas encore reconnu l'existence. */
+      id: 'aldo_remboursement',
+      speaker: 'aldo',
+      question: 'Vous les avez remboursées ?',
+      category: 'les gens',
+      requires: { topicsAsked: ['aldo_avances'] },
+      lines: [
+        { speaker: 'detective', text: 'Ces avances, vous les avez remboursées ?' },
+        { speaker: 'aldo', text: 'Mon oncle ne m’a rien réclamé.', beat: 'think', pause: 0.5 },
+        { speaker: 'aldo', text: 'Ce n’est pas un prêt, c’est de la famille. Vous n’avez pas de famille ?' },
+      ],
+      records: ['aldo_remboursement'],
     },
 
     // --- Enzo ---------------------------------------------------------
@@ -1268,6 +1393,39 @@ export const dernierService: CaseData = {
         { speaker: 'detective', text: 'Le verre, sur le sous-main.' },
         { speaker: 'doyle', text: 'Je l’ai laissé tel quel. On ne touche à rien avant le photographe.' },
       ],
+    },
+    {
+      /* DEUX PERSONNES ONT FERME LE MEME SOIR.
+         Enzo dit « j'ai ferme, j'ai fait la caisse, je suis rentre » ;
+         Rosa dit « c'est moi qui ai ferme ». Les deux phrases sont
+         dans le jeu depuis la deuxieme et la troisieme tranche, et
+         personne ne les avait encore mises face a face.
+
+         Rosa ne crie pas au mensonge : elle fait une distinction de
+         metier, et cette distinction est parfaitement recevable. Le
+         joueur repart avec deux versions et aucun arbitre. */
+      character: 'rosa',
+      statement: 'enzo_soiree',
+      lines: [
+        { speaker: 'detective', text: 'Le gérant dit que c’est lui qui a fermé.' },
+        { speaker: 'rosa', text: 'Il fait la caisse, il part.', pause: 0.5 },
+        { speaker: 'rosa', text: 'C’est moi qui tire le rideau. Ça ne s’appelle pas fermer.' },
+      ],
+      records: ['rosa_rideau'],
+    },
+    {
+      /* Le bulletin presente a Aldo. Il n'etait pas la, et il le fait
+         remarquer -- en designant, sans la nommer, la personne qui
+         servait. C'est une phrase d'homme qui se met a l'abri, pas un
+         renseignement : le carnet la garde, et rien de plus. */
+      character: 'aldo',
+      statement: 'doyle_resultat_preliminaire',
+      lines: [
+        { speaker: 'detective', text: 'Le chimiste a regardé le fond d’une bouteille.' },
+        { speaker: 'aldo', text: 'Et alors ?', beat: 'deny', pause: 0.6 },
+        { speaker: 'aldo', text: 'Je tiens des livres, inspecteur. Je ne sers pas à boire.' },
+      ],
+      records: ['aldo_pas_a_boire'],
     },
     {
       /* LE RESULTAT PRESENTE A ROSA.

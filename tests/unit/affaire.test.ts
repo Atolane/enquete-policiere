@@ -30,10 +30,10 @@ test('la tranche en cours a la taille annoncee', () => {
   assert.equal(dernierService.characters.length, 5);
   assert.equal(dernierService.clues.length, 6);
   assert.equal(dernierService.clueRubrics.length, 2);
-  assert.equal(dernierService.facts.length, 17);
-  assert.equal(dernierService.statements.length, 33);
-  assert.equal(dernierService.topics.length, 36);
-  assert.equal(dernierService.reactions.length, 18);
+  assert.equal(dernierService.facts.length, 18);
+  assert.equal(dernierService.statements.length, 39);
+  assert.equal(dernierService.topics.length, 40);
+  assert.equal(dernierService.reactions.length, 20);
 });
 
 test('la reprise d Enzo remplace bien sa premiere version', () => {
@@ -169,16 +169,18 @@ for (const [mot, raison] of interditsRosa) {
   });
 }
 
-test('Rosa ne ment qu une fois, et sur l heure', () => {
+test('Rosa ment peu, et jamais sur rien de verifiable tout de suite', () => {
   const siennes = dernierService.statements.filter((s) => s.speaker === 'rosa');
   const faux = siennes.filter((s) => s.truth === 'false');
 
-  /* Deux ecarts seulement : l'heure de son depart et la raison qu'elle
-     donne d'avoir renvoye le petit. Tout le reste est vrai -- c'est ce
-     qui rend les deux invisibles. */
+  /* Trois ecarts, pas un de plus : l'heure de son depart, la raison
+     qu'elle donne d'avoir renvoye le petit, et le poele auquel elle
+     n'a rien allume. Le reste est vrai, et c'est ce qui rend les trois
+     invisibles -- un temoin qui ment sur tout se repere en deux
+     questions. */
   assert.deepEqual(
     faux.map((s) => s.id).sort(),
-    ['rosa_nino_renvoye', 'rosa_rentree'],
+    ['rosa_nino_renvoye', 'rosa_rentree', 'rosa_rien_allume'],
   );
   assert.equal(siennes.length > faux.length * 2, true, 'elle dit surtout la verite');
 });
@@ -365,16 +367,23 @@ test('le moteur ne conclut rien a la place du joueur', () => {
   assert.equal(question.effects?.setMood, undefined);
   assert.equal(question.effects?.endInterrogation, undefined);
 
-  /* Et le presenter a quelqu'un ne produit rien non plus. La seule
-     reaction qui existe est celle de Rosa, et elle est sans effet :
-     ce qu'il faut en penser n'appartient qu'au joueur. */
+  /* Et le presenter a quelqu'un ne produit rien non plus. Deux
+     personnes le commentent -- Rosa, qui portait l'anisette, et Aldo,
+     qui n'etait pas la et tient a le rappeler -- et aucune des deux
+     reactions n'a le moindre effet : ce qu'il faut en penser
+     n'appartient qu'au joueur. */
   const faceAuBulletin = dernierService.reactions.filter(
     (r) => r.statement === 'doyle_resultat_preliminaire',
   );
-  assert.equal(faceAuBulletin.length, 1);
-  assert.equal(faceAuBulletin[0].character, 'rosa');
-  assert.equal(faceAuBulletin[0].effects, undefined);
-  assert.equal(faceAuBulletin[0].records, undefined);
+  assert.deepEqual(faceAuBulletin.map((r) => r.character).sort(), ['aldo', 'rosa']);
+  for (const reaction of faceAuBulletin) {
+    assert.equal(reaction.effects, undefined, `${reaction.character} : aucun effet attendu`);
+  }
+
+  /* Rosa, elle, ne concede rien du tout : sa reaction ne porte meme
+     pas de declaration au carnet. Elle repond, et il ne reste rien. */
+  const chezRosa = faceAuBulletin.find((r) => r.character === 'rosa')!;
+  assert.equal(chezRosa.records, undefined);
 });
 
 test('le bulletin n existe que si le joueur remet la bouteille', () => {
@@ -571,6 +580,123 @@ test('ce que la trace etablit ne depasse pas ce qu une trace peut dire', () => {
   assert.match(fait.text, /récipient/i);
   assert.match(fait.text, /n[’']y est plus/i);
   assert.equal(trace.rubric, 'local');
+});
+
+/* ===================================================================
+   L'APPROFONDISSEMENT DE ROSA ET D'ALDO (tranche 7)
+
+   Quatre questions de plus et deux pieces a leur presenter. Le risque
+   de cette tranche-ci n'est plus la fuite d'information : c'est la
+   DESIGNATION. Quatre reponses evasives de suite, une humeur qui se
+   degrade, une question de pression qui apparait -- et le joueur sait,
+   sans avoir rien deduit, qui il doit soupconner.
+
+   Les tests qui suivent verifient que rien de tout cela n'arrive.
+   =================================================================== */
+
+/** Les quatre questions et les deux reactions ajoutees en tranche 7. */
+const tranche7 = {
+  topics: ['rosa_victor_tard', 'rosa_poele', 'aldo_ce_soir_la', 'aldo_remboursement'],
+  reactions: [
+    { character: 'rosa', statement: 'enzo_soiree' },
+    { character: 'aldo', statement: 'doyle_resultat_preliminaire' },
+  ],
+};
+
+test('les quatre nouvelles questions existent et restent non accusatoires', () => {
+  for (const id of tranche7.topics) {
+    const topic = dernierService.topics.find((t) => t.id === id);
+    assert.notEqual(topic, undefined, `${id} : introuvable`);
+    assert.notEqual(topic!.category, 'pression', `${id} : trop tot pour presser`);
+    assert.equal(topic!.effects?.setMood, undefined, `${id} : son humeur ne doit pas bouger`);
+    assert.equal(topic!.effects?.endInterrogation, undefined, `${id} : personne ne claque la porte`);
+  }
+});
+
+test('chacune attend quelque chose que le joueur doit etre alle chercher', () => {
+  /* Aucune des quatre ne tombe du ciel : chacune a son prerequis, et
+     chaque prerequis vient d'ailleurs. Rosa ouvre une question chez
+     Aldo ; Nino en ouvre une chez Rosa. C'est le maillage de
+     l'affaire, et il se lit ici en huit lignes. */
+  const attendu = {
+    rosa_victor_tard: { facts: ['fait_verre_servi'] },
+    rosa_poele: { facts: ['fait_cendres'] },
+    aldo_ce_soir_la: { facts: ['fait_victor_restait_les_comptes'] },
+    aldo_remboursement: { topicsAsked: ['aldo_avances'] },
+  } as const;
+
+  for (const [id, requis] of Object.entries(attendu)) {
+    const topic = dernierService.topics.find((t) => t.id === id)!;
+    assert.deepEqual(topic.requires, requis, `${id} : prerequis inattendu`);
+  }
+
+  /* Et le chemin le plus long tient debout : le verre presente a Rosa
+     lui ouvre une question, dont la reponse ouvre une question chez
+     Aldo. Trois personnes, deux pieces, aucun raccourci. */
+  const verreChezRosa = dernierService.reactions.find(
+    (r) => r.character === 'rosa' && r.clue === 'verre_renverse',
+  )!;
+  assert.deepEqual(verreChezRosa.effects?.revealFacts, ['fait_verre_servi']);
+  const chezRosa = dernierService.topics.find((t) => t.id === 'rosa_victor_tard')!;
+  assert.deepEqual(chezRosa.effects?.revealFacts, ['fait_victor_restait_les_comptes']);
+});
+
+test('les deux nouvelles pieces presentees ne declenchent rien', () => {
+  for (const cible of tranche7.reactions) {
+    const reaction = dernierService.reactions.find(
+      (r) => r.character === cible.character && r.statement === cible.statement,
+    );
+    assert.notEqual(reaction, undefined, `${cible.character} / ${cible.statement} : introuvable`);
+    /* Elles portent une phrase au carnet, et c'est tout. Ni fait, ni
+       question ouverte, ni humeur : mettre deux versions face a face
+       est le travail du joueur, pas celui du moteur. */
+    assert.equal(reaction!.effects, undefined, `${cible.statement} : aucun effet attendu`);
+    assert.equal((reaction!.records ?? []).length, 1);
+  }
+});
+
+test('les deux versions de la fermeture coexistent, sans arbitre', () => {
+  const enzo = dernierService.statements.find((s) => s.id === 'enzo_soiree')!;
+  const rosa = dernierService.statements.find((s) => s.id === 'rosa_fermeture')!;
+  const mise_au_point = dernierService.statements.find((s) => s.id === 'rosa_rideau')!;
+
+  assert.match(enzo.text, /j[’']ai fermé/i);
+  assert.match(rosa.text, /c[’']est moi qui ai fermé/i);
+
+  /* Aucune des trois n'en remplace une autre : le carnet les garde
+     toutes, dans l'ordre ou elles ont ete entendues. */
+  for (const dite of [enzo, rosa, mise_au_point]) {
+    assert.equal(dite.supersedes, undefined, `${dite.id} : rien ne doit etre efface`);
+  }
+  /* Et la mise au point de Rosa est VRAIE. Elle ne traite personne de
+     menteur : elle fait une distinction de metier, qui se defend. */
+  assert.equal(mise_au_point.truth, 'true');
+});
+
+test('Rosa et Aldo n en disent pas plus qu ils ne peuvent savoir', () => {
+  const nouvelles = [
+    'rosa_victor_tard', 'rosa_rien_allume', 'rosa_rideau',
+    'aldo_ignorait', 'aldo_remboursement', 'aldo_pas_a_boire',
+  ];
+  for (const id of nouvelles) {
+    const dite = dernierService.statements.find((s) => s.id === id);
+    assert.notEqual(dite, undefined, `${id} : introuvable`);
+    const texte = dite!.text;
+
+    /* Aucune ne nomme un produit, ni ce qui a brule, ni le montage des
+       ecritures. Ce sont les trois choses que l'affaire doit encore
+       faire decouvrir. */
+    assert.doesNotMatch(texte, /arsenic|poison|raticide|cendres|détournement|fausse facture/i);
+    /* Et aucune ne designe quiconque. */
+    assert.doesNotMatch(texte, /coupable|assassin|menteur|c[’']est (lui|elle)/i);
+  }
+
+  /* Ce que Rosa dit de Victor est une HABITUDE : « les soirs ou »,
+     « une fois par mois ». Rien qui place quiconque dans le bureau la
+     nuit du 12 -- elle n'en sait rien, et le fait acquis non plus. */
+  const fait = dernierService.facts.find((f) => f.id === 'fait_victor_restait_les_comptes')!;
+  assert.match(fait.text, /les soirs où/i);
+  assert.doesNotMatch(fait.text, /le 12|cette nuit|ce soir-là/i);
 });
 
 test('les trois indices sont ranges sous un lieu', () => {

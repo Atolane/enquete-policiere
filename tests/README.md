@@ -35,7 +35,7 @@ Ce répertoire corrige cela pour la partie qui peut l'être tout de suite.
 
 ### `unit/` — le socle
 
-Cinq suites, sans navigateur, sans serveur, sans dépendance. **140 tests, 0 échec.**
+Cinq suites, sans navigateur, sans serveur, sans dépendance. **145 tests, 0 échec.**
 
 | Fichier | Ce qu'il couvre |
 | --- | --- |
@@ -43,7 +43,7 @@ Cinq suites, sans navigateur, sans serveur, sans dépendance. **140 tests, 0 éc
 | `etat.test.ts` | `GameState` : pas de doublon, humeurs, abonnés prévenus une seule fois |
 | `carnet.test.ts` | `Casebook` : regroupement, changements de version, repli « Sans rubrique » |
 | `sauvegarde.test.ts` | `parseSave` : défauts de forme contre identifiants disparus |
-| `affaire.test.ts` | « Le dernier service » : le validateur, la taille de la tranche, la reprise d'Enzo, la retenue de Rosa, la contradiction Enzo / Aldo, la prudence des deux bulletins de laboratoire, les deux verrous de la contre-épreuve, et les mots qu'un témoin ne peut pas prononcer |
+| `affaire.test.ts` | « Le dernier service » : le validateur, la taille de la tranche, la reprise d'Enzo, la retenue de Rosa, les contradictions Enzo / Aldo et Enzo / Rosa, la prudence des deux bulletins de laboratoire, les deux verrous de la contre-épreuve, les prérequis des questions tardives, et les mots qu'un témoin ne peut pas prononcer |
 
 Les modules testés n'importent ni Three.js ni le DOM, ce qui est précisément la raison pour
 laquelle ils sont testables ainsi.
@@ -51,8 +51,8 @@ laquelle ils sont testables ainsi.
 ### `browser/` — une suite à jour, huit héritées
 
 `affaire.mjs` vise **l'affaire réelle** et a été écrite *et rejouée* au moment de son versement :
-**145 contrôles, 0 échec**, trois exécutions de suite. C'est le scénario de référence pour la
-Phase 9. Elle couvre les six tranches en un seul parcours : l'agent Doyle à la porte ; le
+**172 contrôles, 0 échec**, trois exécutions de suite. C'est le scénario de référence pour la
+Phase 9. Elle couvre les sept tranches en un seul parcours : l'agent Doyle à la porte ; le
 verre renversé, la bouteille d'anisette et la trace sur l'étagère du local arrière ; le
 retour chez Doyle, où le prélèvement rapporté trop tôt **ne débloque rien** ; la bouteille,
 le résultat préliminaire, puis le prélèvement redonné et la contre-épreuve ; Nino Restivo ;
@@ -60,11 +60,13 @@ le registre des livraisons, Enzo Carbone et la version qu'il doit reprendre ; le
 montrés à Nino ; Rosa Vitale, le verre et le bulletin ; enfin Aldo Maglione, ses jours de
 livraison et la glace qu'il explique.
 
-Elle éprouve deux enchaînements que rien d'autre ne couvre. Sans le détour par Nino et les
+Elle éprouve trois enchaînements que rien d'autre ne couvre. Sans le détour par Nino et les
 livres, la question sur la glace **n'existe pas** chez Aldo. Et la contre-épreuve exige
 **deux** choses — le premier résultat *et* le prélèvement rapporté : le test vérifie les
 trois états, bloqué, toujours bloqué, puis ouvert, en rouvrant deux fois l'entretien de
-Doyle.
+Doyle. Enfin, la plus longue chaîne de l'affaire : le verre présenté à Rosa lui ouvre une
+question, dont la réponse en ouvre une chez Aldo — trois personnes, deux pièces, aucun
+raccourci.
 
 Elle vérifie aussi un enchaînement qui traverse trois témoins : sans le détour par Nino et
 les livres de comptes, la question sur la glace **n'existe pas** chez Aldo. Le test le
